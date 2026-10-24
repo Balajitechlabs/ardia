@@ -11,10 +11,7 @@ extern CFArrayRef CGSCopyManagedDisplaySpaces(CGSConnectionID cid);
 extern int32_t CGSAddWindowsToSpaces(CGSConnectionID cid, CFArrayRef windowIDs, CFArrayRef spaceIDs);
 
 static BOOL IsLittleWindow(NSWindow *w) {
-<<<<<<< HEAD
-=======
     if (!w) return NO;
->>>>>>> 147cd88b (fix(review): address CodeRabbit and Cubic AI review findings on PR #1)
     return [w.identifier isEqualToString:@"ardia.window.small"];
 }
 
