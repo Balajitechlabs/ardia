@@ -179,15 +179,27 @@ static void ConfigureLittleWindow(NSWindow *win) {
     
     // 4. Title observation for dynamic suggestion sizing and smooth expansion to 900x640 on URL enter
     static const char *kTitleObsKey = "kTitleObsKey";
+    static const char *kCloseObsKey = "kCloseObsKey";
+    static const char *kResignObserverKey = "kResignObserverKey";
     if (!objc_getAssociatedObject(win, kTitleObsKey)) {
         [win addObserver:[LittleArdiaObserver shared] forKeyPath:@"title" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:NULL];
         objc_setAssociatedObject(win, kTitleObsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
-        [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification
-                                                          object:win
-                                                           queue:[NSOperationQueue mainQueue]
-                                                      usingBlock:^(NSNotification *note) {
+        id closeObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification
+                                                                             object:win
+                                                                              queue:[NSOperationQueue mainQueue]
+                                                                         usingBlock:^(NSNotification *note) {
             NSWindow *closingWin = (NSWindow *)note.object;
+            id closeObs = objc_getAssociatedObject(closingWin, kCloseObsKey);
+            if (closeObs) {
+                [[NSNotificationCenter defaultCenter] removeObserver:closeObs];
+                objc_setAssociatedObject(closingWin, kCloseObsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
+            id resignObs = objc_getAssociatedObject(closingWin, kResignObserverKey);
+            if (resignObs) {
+                [[NSNotificationCenter defaultCenter] removeObserver:resignObs];
+                objc_setAssociatedObject(closingWin, kResignObserverKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
             if (objc_getAssociatedObject(closingWin, kTitleObsKey)) {
                 @try {
                     [closingWin removeObserver:[LittleArdiaObserver shared] forKeyPath:@"title"];
@@ -195,10 +207,10 @@ static void ConfigureLittleWindow(NSWindow *win) {
                 objc_setAssociatedObject(closingWin, kTitleObsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             }
         }];
+        objc_setAssociatedObject(win, kCloseObsKey, closeObserver, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
     // 5. Automatically dismiss search palette on blur
-    static const char *kResignObserverKey = "kResignObserverKey";
     if (!objc_getAssociatedObject(win, kResignObserverKey)) {
         id obs = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidResignKeyNotification
                                                                    object:win

@@ -13,7 +13,7 @@ const targetApp = resolve(process.env.TARGET_APP || (existsSync(resolve(root, ".
 const resourcesDir = join(targetApp, "Contents/Resources");
 const bundleDest = join(resourcesDir, "main.jsbundle");
 const backupDir = join(homedir(), ".cache/ardia-bundle-backups");
-const backupDest = join(backupDir, "main.jsbundle.original");
+const backupDest = join(backupDir, `${encodeURIComponent(targetApp)}.main.jsbundle.original`);
 
 if (!existsSync(targetApp)) {
   console.error(`Target app not found: ${targetApp}`);
@@ -60,21 +60,17 @@ try {
   });
 
   // Copy any bundled assets into Contents/Resources
-  try {
-    if (existsSync(tmpAssets) && readdirSync(tmpAssets).length > 0) {
-      cpSync(tmpAssets, resourcesDir, { recursive: true });
-    }
-  } catch (e) {
-    console.warn("Notice: could not copy assets to Resources:", e.message);
+  if (existsSync(tmpAssets) && readdirSync(tmpAssets).length > 0) {
+    cpSync(tmpAssets, resourcesDir, { recursive: true });
   }
 
   // Atomically replace bundleDest
   copyFileSync(tmpHbc, stagedBundle);
   renameSync(stagedBundle, bundleDest);
 
-  // Re-sign ad-hoc so macOS code signature remains valid
+  // Re-sign ad-hoc preserving entitlements and metadata so team Keychain groups remain valid
   try {
-    execFileSync("codesign", ["--force", "--deep", "--sign", "-", targetApp], { stdio: "ignore" });
+    execFileSync("codesign", ["--force", "--deep", "--preserve-metadata=identifier,entitlements,flags,runtime", "--sign", "-", targetApp], { stdio: "ignore" });
   } catch {}
 
   const sizeMb = (statSync(bundleDest).size / (1024 * 1024)).toFixed(2);
