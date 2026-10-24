@@ -11,6 +11,10 @@ extern CFArrayRef CGSCopyManagedDisplaySpaces(CGSConnectionID cid);
 extern int32_t CGSAddWindowsToSpaces(CGSConnectionID cid, CFArrayRef windowIDs, CFArrayRef spaceIDs);
 
 static BOOL IsLittleWindow(NSWindow *w) {
+<<<<<<< HEAD
+=======
+    if (!w) return NO;
+>>>>>>> 147cd88b (fix(review): address CodeRabbit and Cubic AI review findings on PR #1)
     return [w.identifier isEqualToString:@"ardia.window.small"];
 }
 
@@ -122,48 +126,68 @@ static void InstallGlobalHotkey(void) {
 static void ConfigureLittleWindow(NSWindow *win) {
     if (!win) return;
     
-    // 0. Transparent backing & flexible sizing
-    win.minSize = NSMakeSize(350, 50);
-    win.opaque = NO;
-    win.backgroundColor = [NSColor clearColor];
-    win.hasShadow = YES;
+    static const char *kConfiguredKey = "kConfiguredKey";
+    BOOL alreadyConfigured = [objc_getAssociatedObject(win, kConfiguredKey) boolValue];
     
-    // 1. Move to active space and allow floating on top of fullscreen spaces
-    win.collectionBehavior = NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenAuxiliary;
-    win.level = NSFloatingWindowLevel;
-    
-    // 2. Set Quartz WindowServer tags: auxiliary overlay tag 0x00400000, clear document tag 0x00000400
-    CGSConnectionID cid = CGSDefaultConnectionForThread();
-    uint32_t setTags[4] = {0x00400000, 0, 0, 0};
-    uint32_t clearTags[4] = {0x00000400, 0, 0, 0};
-    CGSSetWindowTags(cid, win.windowNumber, setTags, 32);
-    CGSClearWindowTags(cid, win.windowNumber, clearTags, 32);
-    
-    // 4. Explicitly bind window to the currently active managed space
-    CFArrayRef displays = CGSCopyManagedDisplaySpaces(cid);
-    if (displays) {
-        NSArray *dList = (__bridge NSArray *)displays;
-        if (dList.count > 0) {
-            NSDictionary *first = dList.firstObject;
-            NSDictionary *cur = first[@"Current Space"];
-            NSNumber *spaceID = cur[@"ManagedSpaceID"];
-            if (spaceID) {
-                NSArray *wids = @[@(win.windowNumber)];
-                NSArray *sids = @[spaceID];
-                CGSAddWindowsToSpaces(cid, (__bridge CFArrayRef)wids, (__bridge CFArrayRef)sids);
+    if (!alreadyConfigured) {
+        objc_setAssociatedObject(win, kConfiguredKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        
+        // 0. Transparent backing & flexible sizing
+        win.minSize = NSMakeSize(350, 50);
+        win.opaque = NO;
+        win.backgroundColor = [NSColor clearColor];
+        win.hasShadow = YES;
+        
+        // 1. Move to active space and allow floating on top of fullscreen spaces
+        win.collectionBehavior = NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenAuxiliary;
+        win.level = NSFloatingWindowLevel;
+        
+        // 2. Set Quartz WindowServer tags: auxiliary overlay tag 0x00400000, clear document tag 0x00000400
+        CGSConnectionID cid = CGSDefaultConnectionForThread();
+        uint32_t setTags[4] = {0x00400000, 0, 0, 0};
+        uint32_t clearTags[4] = {0x00000400, 0, 0, 0};
+        CGSSetWindowTags(cid, win.windowNumber, setTags, 32);
+        CGSClearWindowTags(cid, win.windowNumber, clearTags, 32);
+        
+        // 3. Explicitly bind window to the currently active managed space
+        CFArrayRef displays = CGSCopyManagedDisplaySpaces(cid);
+        if (displays) {
+            NSArray *dList = (__bridge NSArray *)displays;
+            if (dList.count > 0) {
+                NSDictionary *first = dList.firstObject;
+                NSDictionary *cur = first[@"Current Space"];
+                NSNumber *spaceID = cur[@"ManagedSpaceID"];
+                if (spaceID) {
+                    NSArray *wids = @[@(win.windowNumber)];
+                    NSArray *sids = @[spaceID];
+                    CGSAddWindowsToSpaces(cid, (__bridge CFArrayRef)wids, (__bridge CFArrayRef)sids);
+                }
             }
+            CFRelease(displays);
         }
-        CFRelease(displays);
     }
     
-    // 5. Title observation for dynamic suggestion sizing and smooth expansion to 900x640 on URL enter
+    // 4. Title observation for dynamic suggestion sizing and smooth expansion to 900x640 on URL enter
     static const char *kTitleObsKey = "kTitleObsKey";
     if (!objc_getAssociatedObject(win, kTitleObsKey)) {
         [win addObserver:[LittleArdiaObserver shared] forKeyPath:@"title" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:NULL];
         objc_setAssociatedObject(win, kTitleObsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        
+        [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification
+                                                          object:win
+                                                           queue:[NSOperationQueue mainQueue]
+                                                      usingBlock:^(NSNotification *note) {
+            NSWindow *closingWin = (NSWindow *)note.object;
+            if (objc_getAssociatedObject(closingWin, kTitleObsKey)) {
+                @try {
+                    [closingWin removeObserver:[LittleArdiaObserver shared] forKeyPath:@"title"];
+                } @catch (NSException *e) {}
+                objc_setAssociatedObject(closingWin, kTitleObsKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
+        }];
     }
     
-    // 6. Automatically dismiss search palette on blur
+    // 5. Automatically dismiss search palette on blur
     static const char *kResignObserverKey = "kResignObserverKey";
     if (!objc_getAssociatedObject(win, kResignObserverKey)) {
         id obs = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidResignKeyNotification

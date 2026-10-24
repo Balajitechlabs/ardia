@@ -359,7 +359,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   private func placeSmall(_ window: NSWindow, size: [Double], pointer: NSPoint?) {
     let mouse = pointer ?? NSEvent.mouseLocation
-    let screen = (pointer != nil ? nil : NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) })
+    let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
       ?? (NSApp.isActive ? NSApp.keyWindow?.screen : nil) ?? NSScreen.main
     guard let visible = screen?.visibleFrame else { return window.center() }
     let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)

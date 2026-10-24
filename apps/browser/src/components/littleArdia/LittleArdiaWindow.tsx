@@ -26,6 +26,13 @@ export function LittleArdiaWindow() {
   const [width, setWidth] = useState(0);
   const tab = useActiveTab();
   const isBlank = !tab?.url;
+  const panelOpen = useWindowUi().panel.open;
+
+  useEffect(() => {
+    if (isBlank && !panelOpen) {
+      useBrowser.getState().closeWindow(windowId);
+    }
+  }, [isBlank, panelOpen, windowId]);
 
   useEffect(() => {
     if (isBlank) {
@@ -33,7 +40,9 @@ export function LittleArdiaWindow() {
       void setWindowTitle(windowId, "ardia.search:107");
     } else {
       void setTrafficLightsCenter(windowId, LIGHTS_CENTER);
-      void setWindowTitle(windowId, tab?.title || tab?.url || "Ardia");
+      const rawTitle = tab?.title || tab?.url || "Ardia";
+      const safeTitle = rawTitle.startsWith("ardia.search:") ? ` ${rawTitle}` : rawTitle;
+      void setWindowTitle(windowId, safeTitle);
     }
   }, [windowId, isBlank, tab?.title, tab?.url]);
 

@@ -78,7 +78,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
     const s = useBrowser.getState();
     const w = s.windows[windowId];
     const tab = activeId ? s.tabs[activeId] : undefined;
-    if (reason === "escape" && w?.kind === "small" && !tab?.url) {
+    if (w?.kind === "small" && !tab?.url) {
       return s.closeWindow(windowId);
     }
     closePanelToHeroBar(windowId, activeId, reason);

@@ -85,8 +85,8 @@ function openUrlsFromApps(urls: string[], routed: RoutedLinks, pointer?: [number
 }
 
 function openLinksInMainWindow(urls: string[], profileId: string, adoptIds: (string | undefined)[]) {
+  endColdExternalLaunch();
   let target = mainWindowFor(store(), profileId);
-  if (target) endColdExternalLaunch();
   urls.forEach((url, i) => {
     const s = store();
     const adoptId = adoptIds[i];

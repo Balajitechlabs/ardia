@@ -66,7 +66,9 @@ export function startNativeSync() {
   setFocusSenders(claimFocus, cancelFocusMove);
   cancelAbandonedFocusMoves();
   onCommand((e) => {
-    cancelInitialWindow();
+    if (e.command === "newWindow" || e.command === "newIncognitoWindow" || e.command === "newLittleArdia") {
+      cancelInitialWindow();
+    }
     settlingCommandFocus(e, runCommand);
   });
   startWindowCloseGuard();
@@ -134,6 +136,7 @@ export function startNativeSync() {
       ? pendingIds.filter((id) => s.windows[id]?.kind === "small")
       : pendingIds;
     const opens = windowOpens(s, toOpenIds, !prev);
+    if (opens.length > 0) cancelInitialWindow();
     for (const { id, focus, behind } of opens) {
       const w = s.windows[id]!;
       open.add(id);

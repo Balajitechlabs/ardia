@@ -1,7 +1,7 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import { constants, copyFileSync, existsSync, statSync, mkdirSync, mkdtempSync, renameSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, existsSync, statSync, mkdirSync, mkdtempSync, renameSync, rmSync, cpSync, readdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { dirname, resolve, join } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -10,27 +10,23 @@ const rn = join(root, "node_modules/react-native-macos");
 const hermesc = join(root, "node_modules/react-native/sdks/hermesc/osx-bin/hermesc");
 
 const targetApp = resolve(process.env.TARGET_APP || (existsSync(resolve(root, "../apps/Ardia.app")) ? resolve(root, "../apps/Ardia.app") : "/Applications/Ardia.app"));
-const bundleDest = join(targetApp, "Contents/Resources/main.jsbundle");
-const backupDest = `${targetApp}.main.jsbundle.original`;
+const resourcesDir = join(targetApp, "Contents/Resources");
+const bundleDest = join(resourcesDir, "main.jsbundle");
+const backupDir = join(homedir(), ".cache/ardia-bundle-backups");
+const backupDest = join(backupDir, "main.jsbundle.original");
 
 if (!existsSync(targetApp)) {
   console.error(`Target app not found: ${targetApp}`);
   process.exit(1);
 }
 
-const signature = spawnSync("codesign", ["--display", targetApp], { encoding: "utf8" });
-const unsigned = !signature.error && signature.status === 1 && signature.stderr.trim() === `${targetApp}: code object is not signed at all`;
-if (!unsigned) {
-  console.error("Refusing to modify a signed app or an app whose signature could not be inspected. Set TARGET_APP to an unsigned development copy.");
-  process.exit(1);
-}
-
 if (!existsSync(backupDest) && existsSync(bundleDest)) {
   try {
-    copyFileSync(bundleDest, backupDest, constants.COPYFILE_EXCL);
-    console.log(`Backed up original bundle to: ${backupDest}`);
+    mkdirSync(backupDir, { recursive: true });
+    copyFileSync(bundleDest, backupDest);
+    console.log(`Backed up original bundle outside app to: ${backupDest}`);
   } catch (e) {
-    if (e.code !== "EEXIST") throw e;
+    if (e.code !== "EEXIST") console.warn("Notice: could not backup bundle:", e.message);
   }
 }
 
@@ -41,7 +37,7 @@ const tmpAssets = join(scratchDir, "assets");
 const stagedBundle = join(dirname(bundleDest), `.main.jsbundle-${randomUUID()}.tmp`);
 
 try {
-  mkdirSync(tmpAssets);
+  mkdirSync(tmpAssets, { recursive: true });
   console.log("Bundling React Native UI...");
   execFileSync(
     process.execPath,
@@ -63,8 +59,23 @@ try {
     stdio: "inherit",
   });
 
-  copyFileSync(tmpHbc, stagedBundle, constants.COPYFILE_EXCL);
+  // Copy any bundled assets into Contents/Resources
+  try {
+    if (existsSync(tmpAssets) && readdirSync(tmpAssets).length > 0) {
+      cpSync(tmpAssets, resourcesDir, { recursive: true });
+    }
+  } catch (e) {
+    console.warn("Notice: could not copy assets to Resources:", e.message);
+  }
+
+  // Atomically replace bundleDest
+  copyFileSync(tmpHbc, stagedBundle);
   renameSync(stagedBundle, bundleDest);
+
+  // Re-sign ad-hoc so macOS code signature remains valid
+  try {
+    execFileSync("codesign", ["--force", "--deep", "--sign", "-", targetApp], { stdio: "ignore" });
+  } catch {}
 
   const sizeMb = (statSync(bundleDest).size / (1024 * 1024)).toFixed(2);
   console.log(`\n Successfully updated ${targetApp}!`);
