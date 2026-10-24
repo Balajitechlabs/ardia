@@ -7,6 +7,7 @@ import { closesWindow, engineProfile, isIncognitoProfile, resolveWindowId } from
 import { leavesEmptyWindow } from "../store/newTabBar";
 import { engineIdOf, sharingProfiles } from "../store/profiles";
 import { applyHeldReports } from "./nativeEvents";
+import { endColdExternalLaunch } from "./native";
 import { webviews } from "./webviews";
 import { closeWindowDialog } from "./windowClose";
 
@@ -18,6 +19,7 @@ export function focus(windowId: string) {
 }
 
 export function openWindow(options?: CreateWindowOptions): string {
+  if (!options?.small) endColdExternalLaunch();
   return store().createWindow(options);
 }
 

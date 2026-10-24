@@ -1,6 +1,7 @@
 import { type LinkRoute, routeLinkTabs } from "@ardia/ardiacore";
 import { showMenu } from "@ardia/shell";
 import { focus, openWindow } from "../../lib/actions";
+import { endColdExternalLaunch } from "../../lib/native";
 import { routedLinks, type RoutedLinks } from "../../lib/linkRoutes";
 import { runsJavaScript } from "../../lib/scriptUrls";
 import { profileAccent } from "../../lib/theme";
@@ -102,6 +103,7 @@ function openLinksInMainWindow(urls: string[], profileId: string, adoptIds: (str
 }
 
 export function openInMainWindow(windowId: string) {
+  endColdExternalLaunch();
   const s = store();
   if (!isSmall(s, windowId)) return;
   const tabId = activeTabId(s, windowId);

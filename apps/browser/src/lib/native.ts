@@ -48,6 +48,9 @@ export const isQuitting = () => quitting;
 
 let initialWindowTimer: ReturnType<typeof setTimeout> | null = null;
 let isColdExternalLaunch = false;
+export const endColdExternalLaunch = () => {
+  isColdExternalLaunch = false;
+};
 let initialSyncDone = false;
 
 export function cancelInitialWindow() {
@@ -130,9 +133,6 @@ export function startNativeSync() {
     const toOpenIds = isColdExternalLaunch
       ? pendingIds.filter((id) => s.windows[id]?.kind === "small")
       : pendingIds;
-    if (isColdExternalLaunch && toOpenIds.length > 0) {
-      isColdExternalLaunch = false;
-    }
     const opens = windowOpens(s, toOpenIds, !prev);
     for (const { id, focus, behind } of opens) {
       const w = s.windows[id]!;
