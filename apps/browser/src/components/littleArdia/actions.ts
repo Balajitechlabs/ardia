@@ -11,8 +11,28 @@ import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
 const store = () => useBrowser.getState();
 
 export function openLittleArdia(url?: string, profileId?: string, adoptId?: string, linkPointer?: [number, number]): string {
+  const s = store();
+  const existingSmallId = s.windowOrder.find((id) => s.windows[id]?.kind === "small");
+  if (existingSmallId) {
+    if (url) {
+      const tabId = activeTabId(s, existingSmallId);
+      if (tabId) s.navigate(tabId, url);
+      focus(existingSmallId);
+      return existingSmallId;
+    }
+    const tabId = activeTabId(s, existingSmallId);
+    const tab = tabId ? s.tabs[tabId] : undefined;
+    if (tab?.url) {
+      store().closeWindow(existingSmallId);
+    } else {
+      store().openPanel(existingSmallId, "");
+      focus(existingSmallId);
+      return existingSmallId;
+    }
+  }
   const id = store().createWindow({ small: true, url, profileId, adoptId, linkPointer });
   if (!url) store().openPanel(id, "");
+  focus(id);
   return id;
 }
 
@@ -43,7 +63,19 @@ function openRoutedUrls(urls: string[], route: LinkRoute, pointer?: [number, num
 function openUrlsFromApps(urls: string[], routed: RoutedLinks, pointer?: [number, number]) {
   const [url] = urls;
   const profileId = routed.profileId ?? lastActiveProfile(store());
-  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) return void openLittleArdia(url, profileId, routed.adoptIds[0], pointer);
+  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) {
+    const s = store();
+    for (const id of s.windowOrder) {
+      const w = s.windows[id];
+      if (w && w.kind !== "small") {
+        const blank = w.tabIds.length <= 1 ? s.tabs[w.tabIds[0] ?? ""] : undefined;
+        if (!blank || (!blank.url && !blank.navigation)) {
+          s.closeWindow(id);
+        }
+      }
+    }
+    return void openLittleArdia(url, profileId, routed.adoptIds[0], pointer);
+  }
   openLinksInMainWindow(urls, profileId, routed.adoptIds);
 }
 

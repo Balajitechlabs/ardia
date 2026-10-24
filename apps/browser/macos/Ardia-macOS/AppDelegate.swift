@@ -9,6 +9,11 @@ final class AppDelegate: ExpoAppDelegate {
   private var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   private var reactNativeFactory: RCTReactNativeFactory?
 
+  override init() {
+    super.init()
+    automaticallyLoadReactNativeWindow = false
+  }
+
   override func applicationDidFinishLaunching(_ notification: Notification) {
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)

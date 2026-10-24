@@ -1,5 +1,5 @@
 import { WindowBackdrop } from "@ardia/shaders";
-import { ContextMenuArea, setTrafficLightsCenter, WindowDragRegion } from "@ardia/shell";
+import { ContextMenuArea, setTrafficLightsCenter, setWindowTitle, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../lib/theme";
@@ -21,17 +21,52 @@ const LIGHTS_CENTER: [number, number] = [20, SMALL_BAR_HEIGHT / 2];
 const FIELD_LEFT = 84;
 
 export function LittleArdiaWindow() {
+  const windowId = useWindowId();
   const theme = useTheme();
   const [width, setWidth] = useState(0);
+  const tab = useActiveTab();
+  const isBlank = !tab?.url;
+
+  useEffect(() => {
+    if (isBlank) {
+      void setTrafficLightsCenter(windowId, [-200, -200]);
+      void setWindowTitle(windowId, "ardia.search");
+    } else {
+      void setTrafficLightsCenter(windowId, LIGHTS_CENTER);
+      void setWindowTitle(windowId, tab?.title || tab?.url || "Ardia");
+    }
+  }, [windowId, isBlank, tab?.title, tab?.url]);
+
   return (
     <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
-      <View style={{ flex: 1, flexDirection: "row", paddingTop: SMALL_BAR_HEIGHT, paddingLeft: SMALL_INSET, paddingRight: SMALL_INSET, paddingBottom: SMALL_INSET }}>
-        <ContentCard />
-      </View>
-      <View style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
-        <LittleArdiaBar />
-      </View>
+      {isBlank && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => useBrowser.getState().closeWindow(windowId)}
+        />
+      )}
+      {!isBlank && (
+        <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
+      )}
+      {!isBlank && (
+        <View
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            paddingTop: SMALL_BAR_HEIGHT,
+            paddingLeft: SMALL_INSET,
+            paddingRight: SMALL_INSET,
+            paddingBottom: SMALL_INSET,
+          }}
+        >
+          <ContentCard />
+        </View>
+      )}
+      {!isBlank && (
+        <View style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
+          <LittleArdiaBar />
+        </View>
+      )}
       <CommandPanel windowWidth={width} />
       <DownloadsPopover />
     </View>

@@ -47,9 +47,15 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const hasField = useStoreWhile(useBrowser, panel.open, (s) => !!(activeId && s.tabs[activeId]?.url));
   const insecure = usePage(activeId, (p) => !!insecureLevel(p));
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
+  const isSmallBlank = useBrowser((s) => {
+    const w = s.windows[windowId];
+    if (w?.kind !== "small") return false;
+    const tab = activeId ? s.tabs[activeId] : undefined;
+    return !tab?.url;
+  });
   const centred = useBrowser((s) => panel.open && !panel.newTab && commandBarCentred(s, windowId));
   const card = useCardAnchors((s) => (panel.newTab || centred ? s[windowId] : undefined));
-  const overRows = panel.open && !panel.newTab && !centred && !!anchor?.sidebar;
+  const overRows = panel.open && !panel.newTab && !centred && !isSmallBlank && !!anchor?.sidebar;
   useEffect(() => {
     if (panel.open) dismissHover();
     setRowsCovered(windowId, overRows);
@@ -58,13 +64,39 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   if (panel.newTab) return card ? <CentredBar windowId={windowId} tabId={activeId} target={panel.newTab} card={card} /> : null;
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);
-  const onCancel = () => useBrowser.getState().closePanel(windowId);
-  const onDone = (reason?: BarDismissal) => closePanelToHeroBar(windowId, activeId, reason);
+  const onCancel = () => {
+    const s = useBrowser.getState();
+    const w = s.windows[windowId];
+    const tab = activeId ? s.tabs[activeId] : undefined;
+    if (w?.kind === "small" && !tab?.url) {
+      s.closeWindow(windowId);
+    } else {
+      s.closePanel(windowId);
+    }
+  };
+  const onDone = (reason?: BarDismissal) => {
+    const s = useBrowser.getState();
+    const w = s.windows[windowId];
+    const tab = activeId ? s.tabs[activeId] : undefined;
+    if (reason === "escape" && w?.kind === "small" && !tab?.url) {
+      return s.closeWindow(windowId);
+    }
+    closePanelToHeroBar(windowId, activeId, reason);
+  };
   const surface = (radius: number) => panelSurface(theme, radius);
 
-  if (centred && card) {
+  if (isSmallBlank || (centred && card)) {
+    const effectiveWidth = windowWidth > 0 ? windowWidth : 680;
+    const bWidth = barWidth(effectiveWidth);
+    const frame = isSmallBlank
+      ? {
+          left: 0,
+          top: 0,
+          width: effectiveWidth,
+        }
+      : centredFrame(card!);
     return (
-      <Grow from={null} frame={centredFrame(card)} openHeight={PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
+      <Grow from={null} frame={frame} openHeight={isSmallBlank ? 107 : PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
         <OutsidePressArea onOutsidePress={onCancel}>
           <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} onDone={onDone} />
         </OutsidePressArea>
@@ -123,7 +155,16 @@ function centredFrame(card: Box) {
 
 function CentredBar({ windowId, tabId, target, card }: { windowId: string; tabId: string; target: NewTabTarget; card: Box }) {
   const theme = useTheme();
-  const onCancel = () => useBrowser.getState().closePanel(windowId);
+  const onCancel = () => {
+    const s = useBrowser.getState();
+    const w = s.windows[windowId];
+    const tab = tabId ? s.tabs[tabId] : undefined;
+    if (w?.kind === "small" && !tab?.url) {
+      s.closeWindow(windowId);
+    } else {
+      s.closePanel(windowId);
+    }
+  };
   const onDone = () => closeNewTabBar(windowId);
   return (
     <Grow

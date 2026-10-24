@@ -348,9 +348,13 @@ final class WindowManager: NSObject, NSWindowDelegate {
 
   private func configureSmall(_ window: NSWindow) {
     window.identifier = NSUserInterfaceItemIdentifier("ardia.window.small")
-    window.minSize = NSSize(width: 420, height: 300)
+    window.minSize = NSSize(width: 350, height: 50)
     window.tabbingMode = .disallowed
-    window.collectionBehavior.insert(.moveToActiveSpace)
+    window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+    window.level = .floating
+    window.isOpaque = false
+    window.backgroundColor = .clear
+    window.hasShadow = true
   }
 
   private func placeSmall(_ window: NSWindow, size: [Double], pointer: NSPoint?) {
@@ -360,7 +364,10 @@ final class WindowManager: NSObject, NSWindowDelegate {
     guard let visible = screen?.visibleFrame else { return window.center() }
     let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)
     let height = min(max(size.count == 2 ? size[1] : 640, window.minSize.height), visible.height)
-    let lift = min(visible.height * 0.05, (visible.height - height) / 2)
+    let isSearch = height < 200
+    let lift = isSearch
+      ? min(visible.height * 0.16, (visible.height - height) / 2)
+      : min(visible.height * 0.05, (visible.height - height) / 2)
     let origin = NSPoint(x: (visible.midX - width / 2).rounded(), y: (visible.midY - height / 2 + lift).rounded())
     window.setFrame(NSRect(origin: origin, size: NSSize(width: width.rounded(), height: height.rounded())), display: false)
   }
