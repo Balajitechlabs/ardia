@@ -93,7 +93,7 @@ export function startNativeSync() {
     if (e.type === "appearance") s.setAppDark(e.dark);
     if (e.type === "reopen") {
       isColdExternalLaunch = false;
-      const closedMain = s.windowOrder.filter((id) => !open.has(id) && s.windows[id]?.kind !== "small");
+      const closedMain = s.windowOrder.filter((id) => !open.has(id) && !isSmallWindow(s.windows[id]));
       if (closedMain.length) {
         syncWindows(s);
       } else if (!open.size) {
@@ -171,7 +171,7 @@ export function startNativeSync() {
     if (prev && s.tabs === prev.tabs && s.windows === prev.windows && s.profiles === prev.profiles) return;
     for (const id of open) {
       const w = s.windows[id];
-      const isBlankSmall = w?.kind === "small" && !s.tabs[w.tabIds[0] ?? ""]?.url;
+      const isBlankSmall = isSmallWindow(w) && !s.tabs[w?.tabIds[0] ?? ""]?.url;
       if (isBlankSmall) continue;
       const title = windowTitle(s, id);
       if (titles.get(id) !== title) {

@@ -36,9 +36,14 @@ export function LittleArdiaWindow() {
   const tab = useActiveTab();
   const isBlank = !tab?.url;
   const panelOpen = useWindowUi().panel.open;
+  const wasOpened = useRef(panelOpen);
 
   useEffect(() => {
-    if (isBlank && !panelOpen) {
+    if (panelOpen) wasOpened.current = true;
+  }, [panelOpen]);
+
+  useEffect(() => {
+    if (isBlank && wasOpened.current && !panelOpen) {
       useBrowser.getState().closeWindow(windowId);
     }
   }, [isBlank, panelOpen, windowId]);
