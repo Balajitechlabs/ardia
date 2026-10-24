@@ -93,7 +93,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
     const effectiveWidth = windowWidth > 0 ? windowWidth : LITTLE_ARDIA_SEARCH_WIDTH;
     return (
       <View
-        style={{ width: effectiveWidth }}
+        style={{ width: effectiveWidth, alignSelf: "center" }}
         onLayout={(e) => {
           const h = Math.round(e.nativeEvent.layout.height);
           if (h > 0) void setWindowTitle(windowId, `${LITTLE_ARDIA_SEARCH_PREFIX}${h}`);

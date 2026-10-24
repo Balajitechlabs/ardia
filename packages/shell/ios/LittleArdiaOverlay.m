@@ -137,6 +137,16 @@ static void InstallGlobalHotkey(void) {
 static void ConfigureLittleWindow(NSWindow *win) {
     if (!win) return;
     
+    // Clamp search palette to compact default height if opened or restored with stale height
+    if ([win.title hasPrefix:kSearchTitlePrefix] && win.frame.size.height > kDefaultPaletteHeight && win.frame.size.width < kFullWindowThreshold) {
+        NSRect f = win.frame;
+        CGFloat topY = f.origin.y + f.size.height;
+        f.size.height = kDefaultPaletteHeight;
+        f.origin.y = topY - kDefaultPaletteHeight;
+        [win setFrame:f display:YES];
+        [win invalidateShadow];
+    }
+
     static const char *kConfiguredKey = "kConfiguredKey";
     BOOL alreadyConfigured = [objc_getAssociatedObject(win, kConfiguredKey) boolValue];
     

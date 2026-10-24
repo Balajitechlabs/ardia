@@ -158,7 +158,7 @@ export function startNativeSync() {
         : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
       if (!isSmall) void setTrafficLightsCenter(id, openingLightsCenter(s, id));
-      void openWindow(id, { frame: w.frame, incognito: w.incognito, title: initialTitle, focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
+      void openWindow(id, { frame: isBlankSmall ? undefined : w.frame, incognito: w.incognito, title: initialTitle, focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
     }
     for (const id of [...open]) {
       if (s.windows[id]) continue;
