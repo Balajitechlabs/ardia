@@ -30,7 +30,7 @@ export function LittleArdiaWindow() {
   useEffect(() => {
     if (isBlank) {
       void setTrafficLightsCenter(windowId, [-200, -200]);
-      void setWindowTitle(windowId, "ardia.search");
+      void setWindowTitle(windowId, "ardia.search:107");
     } else {
       void setTrafficLightsCenter(windowId, LIGHTS_CENTER);
       void setWindowTitle(windowId, tab?.title || tab?.url || "Ardia");
@@ -38,7 +38,7 @@ export function LittleArdiaWindow() {
   }, [windowId, isBlank, tab?.title, tab?.url]);
 
   return (
-    <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={{ flex: 1, backgroundColor: "transparent" }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {isBlank && (
         <Pressable
           style={StyleSheet.absoluteFill}

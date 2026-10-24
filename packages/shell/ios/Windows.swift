@@ -364,7 +364,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
     guard let visible = screen?.visibleFrame else { return window.center() }
     let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)
     let height = min(max(size.count == 2 ? size[1] : 640, window.minSize.height), visible.height)
-    let isSearch = height < 200
+    let isSearch = height < 200 || window.title.hasPrefix("ardia.search")
     let lift = isSearch
       ? min(visible.height * 0.16, (visible.height - height) / 2)
       : min(visible.height * 0.05, (visible.height - height) / 2)

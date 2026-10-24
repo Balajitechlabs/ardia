@@ -135,7 +135,7 @@ export function startNativeSync() {
       const w = s.windows[id]!;
       open.add(id);
       const isBlankSmall = w.kind === "small" && !s.tabs[w.tabIds[0] ?? ""]?.url;
-      const initialTitle = isBlankSmall ? "ardia.search" : windowTitle(s, id);
+      const initialTitle = isBlankSmall ? "ardia.search:107" : windowTitle(s, id);
       titles.set(id, initialTitle);
       const profile = engineProfile(w.profileId);
       const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
@@ -161,6 +161,9 @@ export function startNativeSync() {
     }
     if (prev && s.tabs === prev.tabs && s.windows === prev.windows && s.profiles === prev.profiles) return;
     for (const id of open) {
+      const w = s.windows[id];
+      const isBlankSmall = w?.kind === "small" && !s.tabs[w.tabIds[0] ?? ""]?.url;
+      if (isBlankSmall) continue;
       const title = windowTitle(s, id);
       if (titles.get(id) !== title) {
         titles.set(id, title);

@@ -72,9 +72,27 @@ static void InstallGlobalHotkey(void) {
     if ([keyPath isEqualToString:@"title"] && [object isKindOfClass:[NSWindow class]]) {
         NSWindow *win = (NSWindow *)object;
         if (!IsLittleWindow(win)) return;
-        if (![win.title isEqualToString:@"ardia.search"] && ![win.title hasSuffix:@"New Tab"] && win.title.length > 0) {
-            // Expanded to full browser
-            if (win.frame.size.height < 300) {
+        
+        // Dynamically adjust search palette height to fit suggestions
+        if ([win.title hasPrefix:@"ardia.search"]) {
+            NSArray *parts = [win.title componentsSeparatedByString:@":"];
+            CGFloat targetH = (parts.count > 1) ? [parts[1] doubleValue] : 107.0;
+            if (targetH < 80.0) targetH = 107.0;
+            if (targetH > 520.0) targetH = 520.0;
+            
+            if (fabs(win.frame.size.height - targetH) > 2.0 && win.frame.size.width < 800) {
+                NSRect frame = win.frame;
+                CGFloat topY = frame.origin.y + frame.size.height;
+                frame.size.height = targetH;
+                frame.origin.y = topY - targetH;
+                [win setFrame:frame display:YES animate:YES];
+            }
+            return;
+        }
+        
+        // Expanded to full browser
+        if (![win.title hasPrefix:@"ardia.search"] && ![win.title hasSuffix:@"New Tab"] && win.title.length > 0) {
+            if (win.frame.size.width < 800) {
                 NSScreen *screen = win.screen ?: [NSScreen mainScreen];
                 NSRect visible = screen.visibleFrame;
                 NSSize fullSize = NSMakeSize(900, 640);
@@ -123,7 +141,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
     }
     if (!targetScreen) targetScreen = [NSScreen mainScreen];
     
-    BOOL isSearchPalette = [win.title isEqualToString:@"ardia.search"] || (![win.title length] && win.frame.size.height < 400);
+    BOOL isSearchPalette = [win.title hasPrefix:@"ardia.search"] || (![win.title length]) || [win.title hasSuffix:@"New Tab"];
     
     if (targetScreen) {
         NSRect visible = targetScreen.visibleFrame;
@@ -157,7 +175,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
         CFRelease(displays);
     }
     
-    // 5. Title observation for smooth expansion to 900x640 on URL enter
+    // 5. Title observation for dynamic suggestion sizing and smooth expansion to 900x640 on URL enter
     static const char *kTitleObsKey = "kTitleObsKey";
     if (!objc_getAssociatedObject(win, kTitleObsKey)) {
         [win addObserver:[LittleArdiaObserver shared] forKeyPath:@"title" options:NSKeyValueObservingOptionNew context:NULL];
@@ -172,7 +190,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
                                                                     queue:[NSOperationQueue mainQueue]
                                                                usingBlock:^(NSNotification *note) {
             NSWindow *w = (NSWindow *)note.object;
-            if ([w.title isEqualToString:@"ardia.search"] || [w.title hasSuffix:@"New Tab"] || w.frame.size.height < 300) {
+            if ([w.title hasPrefix:@"ardia.search"] || [w.title hasSuffix:@"New Tab"] || w.frame.size.width < 800) {
                 [w performClose:nil];
             }
         }];

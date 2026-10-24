@@ -24,6 +24,10 @@ export function openLittleArdia(url?: string, profileId?: string, adoptId?: stri
     const tab = tabId ? s.tabs[tabId] : undefined;
     if (tab?.url) {
       store().closeWindow(existingSmallId);
+      const id = store().createWindow({ small: true, profileId, adoptId, linkPointer });
+      store().openPanel(id, "");
+      focus(id);
+      return id;
     } else {
       store().openPanel(existingSmallId, "");
       focus(existingSmallId);

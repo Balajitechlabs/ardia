@@ -85,18 +85,31 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   };
   const surface = (radius: number) => panelSurface(theme, radius);
 
-  if (isSmallBlank || (centred && card)) {
+  if (isSmallBlank) {
+    const effectiveWidth = windowWidth > 0 ? windowWidth : 680;
+    return (
+      <View
+        style={{ width: effectiveWidth }}
+        onLayout={(e) => {
+          const h = Math.round(e.nativeEvent.layout.height);
+          if (h > 0) void setWindowTitle(windowId, `ardia.search:${h}`);
+        }}
+      >
+        <Surface {...surface(PANEL_RADIUS)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+        <View style={{ overflow: "hidden", borderRadius: PANEL_RADIUS }}>
+          <OutsidePressArea onOutsidePress={onCancel}>
+            <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} onDone={onDone} />
+          </OutsidePressArea>
+        </View>
+      </View>
+    );
+  }
+
+  if (centred && card) {
     const effectiveWidth = windowWidth > 0 ? windowWidth : 680;
     const bWidth = barWidth(effectiveWidth);
-    const frame = isSmallBlank
-      ? {
-          left: 0,
-          top: 0,
-          width: effectiveWidth,
-        }
-      : centredFrame(card!);
     return (
-      <Grow from={null} frame={frame} openHeight={isSmallBlank ? 107 : PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
+      <Grow from={null} frame={centredFrame(card!)} openHeight={PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
         <OutsidePressArea onOutsidePress={onCancel}>
           <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} onDone={onDone} />
         </OutsidePressArea>
