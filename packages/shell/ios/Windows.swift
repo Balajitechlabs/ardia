@@ -424,7 +424,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
         id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: true, kind: o.kind, profile: o.profile, size: o.size,
         pointer: o.pointer)
     }
-    windows[id]?.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+    if let window = windows[id] {
+      if window.isMiniaturized { window.deminiaturize(nil) }
+      window.makeKeyAndOrderFront(nil)
+    }
   }
 
   func setTitle(id: String, title: String) {

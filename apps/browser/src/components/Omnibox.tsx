@@ -265,6 +265,7 @@ export function Omnibox({
     bangEnter.cancel();
     if (key === "Escape") {
       if (scope) return leaveScope(null);
+      if (typed.length > 0) return reset();
       if (!hero) return onDone?.("escape");
       if (shownCompletion) return setSuppressCompletion(true);
       return reset();

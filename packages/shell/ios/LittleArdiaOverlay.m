@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
+#import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
 typedef uintptr_t CGSConnectionID;
@@ -85,7 +86,14 @@ static void InstallGlobalHotkey(void) {
                 CGFloat topY = frame.origin.y + frame.size.height;
                 frame.size.height = targetH;
                 frame.origin.y = topY - targetH;
-                [win setFrame:frame display:YES animate:YES];
+                [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
+                    context.duration = 0.12;
+                    context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+                    [[win animator] setFrame:frame display:YES];
+                } completionHandler:^{
+                    [win invalidateShadow];
+                }];
+                [win invalidateShadow];
             }
             return;
         }
@@ -103,7 +111,14 @@ static void InstallGlobalHotkey(void) {
                     fullSize.width,
                     fullSize.height
                 );
-                [win setFrame:expandedFrame display:YES animate:YES];
+                [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
+                    context.duration = 0.18;
+                    context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+                    [[win animator] setFrame:expandedFrame display:YES];
+                } completionHandler:^{
+                    [win invalidateShadow];
+                }];
+                [win invalidateShadow];
             }
         }
     }
