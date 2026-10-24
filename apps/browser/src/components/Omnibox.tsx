@@ -221,8 +221,8 @@ export function Omnibox({
         setPendingSelection({ start: 0, end: s.value.length });
         return;
       case "action":
-        dismiss();
-        return runBarAction(s.id, windowId);
+        runBarAction(s.id, windowId);
+        return dismiss();
     }
   };
 

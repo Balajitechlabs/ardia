@@ -69,6 +69,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const onCancel = () => {
     const s = useBrowser.getState();
     const w = s.windows[windowId];
+    if (!w) return;
     const tab = activeId ? s.tabs[activeId] : undefined;
     if (isSmallWindow(w) && !tab?.url) {
       s.closeWindow(windowId);
@@ -79,6 +80,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const onDone = (reason?: BarDismissal) => {
     const s = useBrowser.getState();
     const w = s.windows[windowId];
+    if (!w) return;
     const tab = activeId ? s.tabs[activeId] : undefined;
     if (reason === "escape" && isSmallWindow(w) && !tab?.url) {
       return s.closeWindow(windowId);
