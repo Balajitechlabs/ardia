@@ -12,6 +12,8 @@ import { commandBarCentred, useCardAnchors, useUrlAnchors } from "./layout/windo
 import { barWidth } from "./NewTabPage";
 import { closeNewTabBar } from "./omnibox/newTabBar";
 import type { NewTabTarget } from "../store/types";
+import { isSmallWindow } from "../store/small";
+import { LITTLE_ARDIA_SEARCH_PREFIX, LITTLE_ARDIA_SEARCH_WIDTH } from "./littleArdia/SmallChrome";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
 import { closePanelToHeroBar, type BarDismissal } from "./omnibox/barState";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "./Toolbar";
@@ -49,7 +51,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
   const isSmallBlank = useBrowser((s) => {
     const w = s.windows[windowId];
-    if (w?.kind !== "small") return false;
+    if (!isSmallWindow(w)) return false;
     const tab = activeId ? s.tabs[activeId] : undefined;
     return !tab?.url;
   });
@@ -68,7 +70,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
     const s = useBrowser.getState();
     const w = s.windows[windowId];
     const tab = activeId ? s.tabs[activeId] : undefined;
-    if (w?.kind === "small" && !tab?.url) {
+    if (isSmallWindow(w) && !tab?.url) {
       s.closeWindow(windowId);
     } else {
       s.closePanel(windowId);
@@ -78,7 +80,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
     const s = useBrowser.getState();
     const w = s.windows[windowId];
     const tab = activeId ? s.tabs[activeId] : undefined;
-    if (w?.kind === "small" && !tab?.url) {
+    if (isSmallWindow(w) && !tab?.url) {
       return s.closeWindow(windowId);
     }
     closePanelToHeroBar(windowId, activeId, reason);
@@ -86,13 +88,13 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const surface = (radius: number) => panelSurface(theme, radius);
 
   if (isSmallBlank) {
-    const effectiveWidth = windowWidth > 0 ? windowWidth : 680;
+    const effectiveWidth = windowWidth > 0 ? windowWidth : LITTLE_ARDIA_SEARCH_WIDTH;
     return (
       <View
         style={{ width: effectiveWidth }}
         onLayout={(e) => {
           const h = Math.round(e.nativeEvent.layout.height);
-          if (h > 0) void setWindowTitle(windowId, `ardia.search:${h}`);
+          if (h > 0) void setWindowTitle(windowId, `${LITTLE_ARDIA_SEARCH_PREFIX}${h}`);
         }}
       >
         <Surface {...surface(PANEL_RADIUS)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
@@ -106,8 +108,6 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   }
 
   if (centred && card) {
-    const effectiveWidth = windowWidth > 0 ? windowWidth : 680;
-    const bWidth = barWidth(effectiveWidth);
     return (
       <Grow from={null} frame={centredFrame(card!)} openHeight={PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
         <OutsidePressArea onOutsidePress={onCancel}>

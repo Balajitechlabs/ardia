@@ -33,6 +33,8 @@ import { isInternalTab } from "../components/pages/urls";
 import { sidebarMenuState } from "../components/sidebar/commands";
 import { openWindow as createWindow } from "./actions";
 import { windowOpens } from "./windowOpenOrder";
+import { isSmallWindow } from "../store/small";
+import { LITTLE_ARDIA_INITIAL_TITLE, LITTLE_ARDIA_SEARCH_HEIGHT, LITTLE_ARDIA_SEARCH_WIDTH } from "../components/littleArdia/SmallChrome";
 import { openExternalUrls } from "../components/littleArdia/actions";
 import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
 import { runCommand } from "./commands";
@@ -133,28 +135,29 @@ export function startNativeSync() {
   const syncWindows = (s: BrowserState, prev?: BrowserState) => {
     const pendingIds = s.windowOrder.filter((id) => !open.has(id));
     const toOpenIds = isColdExternalLaunch
-      ? pendingIds.filter((id) => s.windows[id]?.kind === "small")
+      ? pendingIds.filter((id) => isSmallWindow(s.windows[id]))
       : pendingIds;
     const opens = windowOpens(s, toOpenIds, !prev);
     if (opens.length > 0) cancelInitialWindow();
     for (const { id, focus, behind } of opens) {
       const w = s.windows[id]!;
       open.add(id);
-      const isBlankSmall = w.kind === "small" && !s.tabs[w.tabIds[0] ?? ""]?.url;
-      const initialTitle = isBlankSmall ? "ardia.search:107" : windowTitle(s, id);
+      const isSmall = isSmallWindow(w);
+      const isBlankSmall = isSmall && !s.tabs[w.tabIds[0] ?? ""]?.url;
+      const initialTitle = isBlankSmall ? LITTLE_ARDIA_INITIAL_TITLE : windowTitle(s, id);
       titles.set(id, initialTitle);
       const profile = engineProfile(w.profileId);
-      const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
-      const small = w.kind === "small"
+      const claim = isSmall ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
+      const small = isSmall
         ? {
             kind: "small" as const,
-            size: isBlankSmall ? [680, 107] : s.settings.littleArdiaSize,
+            size: isBlankSmall ? [LITTLE_ARDIA_SEARCH_WIDTH, LITTLE_ARDIA_SEARCH_HEIGHT] : s.settings.littleArdiaSize,
             ...(claim?.startsWith("link:") ? { claim } : {}),
             ...(w.linkPointer ? { pointer: w.linkPointer } : {})
           }
         : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
-      if (w.kind !== "small") void setTrafficLightsCenter(id, openingLightsCenter(s, id));
+      if (!isSmall) void setTrafficLightsCenter(id, openingLightsCenter(s, id));
       void openWindow(id, { frame: w.frame, incognito: w.incognito, title: initialTitle, focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
     }
     for (const id of [...open]) {

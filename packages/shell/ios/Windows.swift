@@ -5,6 +5,11 @@ public enum WindowHost {
   public static var makeContentView: ((_ windowId: String) -> NSView)?
 }
 
+private let smallWindowIdentifier = NSUserInterfaceItemIdentifier("ardia.window.small")
+private let defaultSmallWidth: Double = 900
+private let defaultSmallHeight: Double = 640
+private let searchTitlePrefix = "ardia.search"
+
 final class WindowManager: NSObject, NSWindowDelegate {
   static let shared = WindowManager()
 
@@ -347,7 +352,7 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   private func configureSmall(_ window: NSWindow) {
-    window.identifier = NSUserInterfaceItemIdentifier("ardia.window.small")
+    window.identifier = smallWindowIdentifier
     window.minSize = NSSize(width: 350, height: 50)
     window.tabbingMode = .disallowed
     window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
@@ -362,9 +367,9 @@ final class WindowManager: NSObject, NSWindowDelegate {
     let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
       ?? (NSApp.isActive ? NSApp.keyWindow?.screen : nil) ?? NSScreen.main
     guard let visible = screen?.visibleFrame else { return window.center() }
-    let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)
-    let height = min(max(size.count == 2 ? size[1] : 640, window.minSize.height), visible.height)
-    let isSearch = height < 200 || window.title.hasPrefix("ardia.search")
+    let width = min(max(size.count == 2 ? size[0] : defaultSmallWidth, window.minSize.width), visible.width)
+    let height = min(max(size.count == 2 ? size[1] : defaultSmallHeight, window.minSize.height), visible.height)
+    let isSearch = height < 200 || window.title.hasPrefix(searchTitlePrefix)
     let lift = isSearch
       ? min(visible.height * 0.16, (visible.height - height) / 2)
       : min(visible.height * 0.05, (visible.height - height) / 2)

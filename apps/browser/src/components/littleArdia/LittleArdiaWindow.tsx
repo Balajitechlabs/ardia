@@ -15,9 +15,18 @@ import { useHover } from "../primitives";
 import { copyPageUrl } from "../site/selection";
 import { ProfileBadge } from "../profiles/icons";
 import { openInMainWindow, openLittleArdiaProfileMenu } from "./actions";
-import { PageLabel, SMALL_BAR_HEIGHT, SMALL_INSET, SmallBar, SmallBarBadgeButton } from "./SmallChrome";
+import {
+  LITTLE_ARDIA_INITIAL_TITLE,
+  LITTLE_ARDIA_SEARCH_PREFIX,
+  PageLabel,
+  SMALL_BAR_HEIGHT,
+  SMALL_INSET,
+  SmallBar,
+  SmallBarBadgeButton,
+} from "./SmallChrome";
 
 const LIGHTS_CENTER: [number, number] = [20, SMALL_BAR_HEIGHT / 2];
+const HIDDEN_LIGHTS_CENTER: [number, number] = [-200, -200];
 const FIELD_LEFT = 84;
 
 export function LittleArdiaWindow() {
@@ -36,45 +45,42 @@ export function LittleArdiaWindow() {
 
   useEffect(() => {
     if (isBlank) {
-      void setTrafficLightsCenter(windowId, [-200, -200]);
-      void setWindowTitle(windowId, "ardia.search:107");
+      void setTrafficLightsCenter(windowId, HIDDEN_LIGHTS_CENTER);
+      void setWindowTitle(windowId, LITTLE_ARDIA_INITIAL_TITLE);
     } else {
       void setTrafficLightsCenter(windowId, LIGHTS_CENTER);
       const rawTitle = tab?.title || tab?.url || "Ardia";
-      const safeTitle = rawTitle.startsWith("ardia.search:") ? ` ${rawTitle}` : rawTitle;
+      const safeTitle = rawTitle.startsWith(LITTLE_ARDIA_SEARCH_PREFIX) ? ` ${rawTitle}` : rawTitle;
       void setWindowTitle(windowId, safeTitle);
     }
   }, [windowId, isBlank, tab?.title, tab?.url]);
 
   return (
     <View style={{ flex: 1, backgroundColor: "transparent" }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      {isBlank && (
+      {isBlank ? (
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={() => useBrowser.getState().closeWindow(windowId)}
         />
-      )}
-      {!isBlank && (
-        <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
-      )}
-      {!isBlank && (
-        <View
-          style={{
-            flex: 1,
-            flexDirection: "row",
-            paddingTop: SMALL_BAR_HEIGHT,
-            paddingLeft: SMALL_INSET,
-            paddingRight: SMALL_INSET,
-            paddingBottom: SMALL_INSET,
-          }}
-        >
-          <ContentCard />
-        </View>
-      )}
-      {!isBlank && (
-        <View style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
-          <LittleArdiaBar />
-        </View>
+      ) : (
+        <>
+          <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
+          <View
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              paddingTop: SMALL_BAR_HEIGHT,
+              paddingLeft: SMALL_INSET,
+              paddingRight: SMALL_INSET,
+              paddingBottom: SMALL_INSET,
+            }}
+          >
+            <ContentCard />
+          </View>
+          <View style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
+            <LittleArdiaBar />
+          </View>
+        </>
       )}
       <CommandPanel windowWidth={width} />
       <DownloadsPopover />

@@ -10,9 +10,20 @@ extern int32_t CGSClearWindowTags(CGSConnectionID cid, NSInteger wid, const uint
 extern CFArrayRef CGSCopyManagedDisplaySpaces(CGSConnectionID cid);
 extern int32_t CGSAddWindowsToSpaces(CGSConnectionID cid, CFArrayRef windowIDs, CFArrayRef spaceIDs);
 
+static NSString *const kSmallWindowIdentifier = @"ardia.window.small";
+static NSString *const kSearchTitlePrefix = @"ardia.search";
+static const CGFloat kDefaultPaletteHeight = 107.0;
+static const CGFloat kMinPaletteHeight = 80.0;
+static const CGFloat kMaxPaletteHeight = 520.0;
+static const CGFloat kFullWindowWidth = 900.0;
+static const CGFloat kFullWindowHeight = 640.0;
+static const CGFloat kFullWindowThreshold = 800.0;
+static const NSTimeInterval kPaletteAnimationDuration = 0.12;
+static const NSTimeInterval kExpansionAnimationDuration = 0.18;
+
 static BOOL IsLittleWindow(NSWindow *w) {
     if (!w) return NO;
-    return [w.identifier isEqualToString:@"ardia.window.small"];
+    return [w.identifier isEqualToString:kSmallWindowIdentifier];
 }
 
 static void TriggerNewLittleArdia(void) {
@@ -69,19 +80,19 @@ static void InstallGlobalHotkey(void) {
         if (!IsLittleWindow(win)) return;
         
         // Dynamically adjust search palette height to fit suggestions
-        if ([win.title hasPrefix:@"ardia.search"]) {
+        if ([win.title hasPrefix:kSearchTitlePrefix]) {
             NSArray *parts = [win.title componentsSeparatedByString:@":"];
-            CGFloat targetH = (parts.count > 1) ? [parts[1] doubleValue] : 107.0;
-            if (targetH < 80.0) targetH = 107.0;
-            if (targetH > 520.0) targetH = 520.0;
+            CGFloat targetH = (parts.count > 1) ? [parts[1] doubleValue] : kDefaultPaletteHeight;
+            if (targetH < kMinPaletteHeight) targetH = kDefaultPaletteHeight;
+            if (targetH > kMaxPaletteHeight) targetH = kMaxPaletteHeight;
             
-            if (fabs(win.frame.size.height - targetH) > 2.0 && win.frame.size.width < 800) {
+            if (fabs(win.frame.size.height - targetH) > 2.0 && win.frame.size.width < kFullWindowThreshold) {
                 NSRect frame = win.frame;
                 CGFloat topY = frame.origin.y + frame.size.height;
                 frame.size.height = targetH;
                 frame.origin.y = topY - targetH;
                 [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
-                    context.duration = 0.12;
+                    context.duration = kPaletteAnimationDuration;
                     context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
                     [[win animator] setFrame:frame display:YES];
                 } completionHandler:^{
@@ -94,11 +105,13 @@ static void InstallGlobalHotkey(void) {
         
         // Expanded to full browser
         NSString *previousTitle = change[NSKeyValueChangeOldKey];
-        if ([previousTitle isKindOfClass:[NSString class]] && [previousTitle hasPrefix:@"ardia.search"]) {
-            if (win.frame.size.width < 800) {
+        BOOL wasSearchPalette = ([previousTitle isKindOfClass:[NSString class]] && [previousTitle hasPrefix:kSearchTitlePrefix]) ||
+                                (win.frame.size.width < kFullWindowThreshold && ![win.title hasPrefix:kSearchTitlePrefix]);
+        if (wasSearchPalette && win.title.length > 0) {
+            if (win.frame.size.width < kFullWindowThreshold) {
                 NSScreen *screen = win.screen ?: [NSScreen mainScreen];
                 NSRect visible = screen.visibleFrame;
-                NSSize fullSize = NSMakeSize(900, 640);
+                NSSize fullSize = NSMakeSize(kFullWindowWidth, kFullWindowHeight);
                 CGFloat lift = MIN(visible.size.height * 0.05, (visible.size.height - fullSize.height) / 2.0);
                 NSRect expandedFrame = NSMakeRect(
                     round(NSMidX(visible) - fullSize.width / 2.0),
@@ -107,7 +120,7 @@ static void InstallGlobalHotkey(void) {
                     fullSize.height
                 );
                 [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
-                    context.duration = 0.18;
+                    context.duration = kExpansionAnimationDuration;
                     context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
                     [[win animator] setFrame:expandedFrame display:YES];
                 } completionHandler:^{
@@ -192,7 +205,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
                                                                     queue:[NSOperationQueue mainQueue]
                                                                usingBlock:^(NSNotification *note) {
             NSWindow *w = (NSWindow *)note.object;
-            if ([w.title hasPrefix:@"ardia.search"]) {
+            if ([w.title hasPrefix:kSearchTitlePrefix]) {
                 [w performClose:nil];
             }
         }];

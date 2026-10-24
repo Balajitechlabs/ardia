@@ -7,13 +7,13 @@ import { runsJavaScript } from "../../lib/scriptUrls";
 import { profileAccent } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
-import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
+import { isSmall, isSmallWindow, lastActiveProfile, mainWindowFor } from "../../store/small";
 
 const store = () => useBrowser.getState();
 
 export function openLittleArdia(url?: string, profileId?: string, adoptId?: string, linkPointer?: [number, number]): string {
   const s = store();
-  const existingSmallId = s.windowOrder.find((id) => s.windows[id]?.kind === "small");
+  const existingSmallId = s.windowOrder.find((id) => isSmallWindow(s.windows[id]));
   if (existingSmallId) {
     if (url) {
       const tabId = activeTabId(s, existingSmallId);
@@ -24,19 +24,19 @@ export function openLittleArdia(url?: string, profileId?: string, adoptId?: stri
     const tabId = activeTabId(s, existingSmallId);
     const tab = tabId ? s.tabs[tabId] : undefined;
     if (tab?.url) {
-      store().closeWindow(existingSmallId);
-      const id = store().createWindow({ small: true, profileId, adoptId, linkPointer });
-      store().openPanel(id, "");
+      s.closeWindow(existingSmallId);
+      const id = s.createWindow({ small: true, profileId, adoptId, linkPointer });
+      s.openPanel(id, "");
       focus(id);
       return id;
     } else {
-      store().openPanel(existingSmallId, "");
+      s.openPanel(existingSmallId, "");
       focus(existingSmallId);
       return existingSmallId;
     }
   }
-  const id = store().createWindow({ small: true, url, profileId, adoptId, linkPointer });
-  if (!url) store().openPanel(id, "");
+  const id = s.createWindow({ small: true, url, profileId, adoptId, linkPointer });
+  if (!url) s.openPanel(id, "");
   focus(id);
   return id;
 }
@@ -72,7 +72,7 @@ function openUrlsFromApps(urls: string[], routed: RoutedLinks, pointer?: [number
     const s = store();
     for (const id of s.windowOrder) {
       const w = s.windows[id];
-      if (w && w.kind !== "small") {
+      if (w && !isSmallWindow(w)) {
         const blank = w.tabIds.length === 1 ? s.tabs[w.tabIds[0]!] : undefined;
         if (blank && !blank.url && !blank.navigation) {
           s.closeWindow(id);
