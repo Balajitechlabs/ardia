@@ -96,6 +96,7 @@ static void InstallGlobalHotkey(void) {
                     context.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
                     [[win animator] setFrame:frame display:YES];
                 } completionHandler:^{
+                    [win makeKeyWindow];
                     [win invalidateShadow];
                 }];
                 [win invalidateShadow];
@@ -181,6 +182,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
     static const char *kTitleObsKey = "kTitleObsKey";
     static const char *kCloseObsKey = "kCloseObsKey";
     static const char *kResignObserverKey = "kResignObserverKey";
+    static const char *kAppResignObserverKey = "kAppResignObserverKey";
     if (!objc_getAssociatedObject(win, kTitleObsKey)) {
         [win addObserver:[LittleArdiaObserver shared] forKeyPath:@"title" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:NULL];
         objc_setAssociatedObject(win, kTitleObsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -200,6 +202,11 @@ static void ConfigureLittleWindow(NSWindow *win) {
                 [[NSNotificationCenter defaultCenter] removeObserver:resignObs];
                 objc_setAssociatedObject(closingWin, kResignObserverKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             }
+            id appResignObs = objc_getAssociatedObject(closingWin, kAppResignObserverKey);
+            if (appResignObs) {
+                [[NSNotificationCenter defaultCenter] removeObserver:appResignObs];
+                objc_setAssociatedObject(closingWin, kAppResignObserverKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
             if (objc_getAssociatedObject(closingWin, kTitleObsKey)) {
                 @try {
                     [closingWin removeObserver:[LittleArdiaObserver shared] forKeyPath:@"title"];
@@ -210,18 +217,38 @@ static void ConfigureLittleWindow(NSWindow *win) {
         objc_setAssociatedObject(win, kCloseObsKey, closeObserver, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
-    // 5. Automatically dismiss search palette on blur
+    // 5. Automatically dismiss search palette when user clicks away
     if (!objc_getAssociatedObject(win, kResignObserverKey)) {
         id obs = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidResignKeyNotification
                                                                    object:win
                                                                     queue:[NSOperationQueue mainQueue]
                                                                usingBlock:^(NSNotification *note) {
-            NSWindow *w = (NSWindow *)note.object;
-            if ([w.title hasPrefix:kSearchTitlePrefix]) {
-                [w performClose:nil];
-            }
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSWindow *w = (NSWindow *)note.object;
+                if (!w || !IsLittleWindow(w)) return;
+                if (w.isKeyWindow || ([NSApp isActive] && [NSApp keyWindow] == w)) return;
+                if (![NSApp isActive] || ([NSApp keyWindow] && [NSApp keyWindow] != w)) {
+                    if ([w.title hasPrefix:kSearchTitlePrefix]) {
+                        [w performClose:nil];
+                    }
+                }
+            });
         }];
         objc_setAssociatedObject(win, kResignObserverKey, obs, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+
+    if (!objc_getAssociatedObject(win, kAppResignObserverKey)) {
+        id appObs = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidResignActiveNotification
+                                                                      object:nil
+                                                                       queue:[NSOperationQueue mainQueue]
+                                                                  usingBlock:^(NSNotification *note) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (![NSApp isActive] && IsLittleWindow(win) && [win.title hasPrefix:kSearchTitlePrefix]) {
+                    [win performClose:nil];
+                }
+            });
+        }];
+        objc_setAssociatedObject(win, kAppResignObserverKey, appObs, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
 }
 

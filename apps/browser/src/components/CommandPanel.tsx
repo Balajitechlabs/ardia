@@ -102,7 +102,7 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
         <Surface {...surface(PANEL_RADIUS)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
         <View style={{ overflow: "hidden", borderRadius: PANEL_RADIUS }}>
           <OutsidePressArea onOutsidePress={onCancel}>
-            <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} onDone={onDone} />
+            <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={undefined} onDone={onDone} />
           </OutsidePressArea>
         </View>
       </View>
