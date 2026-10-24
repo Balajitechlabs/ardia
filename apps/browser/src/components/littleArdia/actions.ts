@@ -73,8 +73,8 @@ function openUrlsFromApps(urls: string[], routed: RoutedLinks, pointer?: [number
     for (const id of s.windowOrder) {
       const w = s.windows[id];
       if (w && w.kind !== "small") {
-        const blank = w.tabIds.length <= 1 ? s.tabs[w.tabIds[0] ?? ""] : undefined;
-        if (!blank || (!blank.url && !blank.navigation)) {
+        const blank = w.tabIds.length === 1 ? s.tabs[w.tabIds[0]!] : undefined;
+        if (blank && !blank.url && !blank.navigation) {
           s.closeWindow(id);
         }
       }
@@ -86,6 +86,7 @@ function openUrlsFromApps(urls: string[], routed: RoutedLinks, pointer?: [number
 
 function openLinksInMainWindow(urls: string[], profileId: string, adoptIds: (string | undefined)[]) {
   let target = mainWindowFor(store(), profileId);
+  if (target) endColdExternalLaunch();
   urls.forEach((url, i) => {
     const s = store();
     const adoptId = adoptIds[i];

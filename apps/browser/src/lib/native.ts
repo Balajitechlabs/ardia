@@ -73,7 +73,7 @@ export function startNativeSync() {
   startExtensionsBridge();
   onOpenURLs((urls, pointer) => {
     cancelInitialWindow();
-    isColdExternalLaunch = true;
+    if (!initialSyncDone) isColdExternalLaunch = true;
     initialSyncDone = true;
     openExternalUrls(urls, pointer);
   });

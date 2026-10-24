@@ -11,14 +11,7 @@ extern CFArrayRef CGSCopyManagedDisplaySpaces(CGSConnectionID cid);
 extern int32_t CGSAddWindowsToSpaces(CGSConnectionID cid, CFArrayRef windowIDs, CFArrayRef spaceIDs);
 
 static BOOL IsLittleWindow(NSWindow *w) {
-    if (!w) return NO;
-    if ([w.identifier isEqualToString:@"ardia.window.small"]) return YES;
-    if (w.level == NSFloatingWindowLevel) return YES;
-    NSSize sz = w.frame.size;
-    if (sz.width >= 350 && sz.width <= 1050 && sz.height >= 50 && sz.height <= 750) {
-        return YES;
-    }
-    return NO;
+    return [w.identifier isEqualToString:@"ardia.window.small"];
 }
 
 static void TriggerNewLittleArdia(void) {
@@ -99,7 +92,8 @@ static void InstallGlobalHotkey(void) {
         }
         
         // Expanded to full browser
-        if (![win.title hasPrefix:@"ardia.search"] && ![win.title hasSuffix:@"New Tab"] && win.title.length > 0) {
+        NSString *previousTitle = change[NSKeyValueChangeOldKey];
+        if ([previousTitle isKindOfClass:[NSString class]] && [previousTitle hasPrefix:@"ardia.search"]) {
             if (win.frame.size.width < 800) {
                 NSScreen *screen = win.screen ?: [NSScreen mainScreen];
                 NSRect visible = screen.visibleFrame;
@@ -145,34 +139,6 @@ static void ConfigureLittleWindow(NSWindow *win) {
     CGSSetWindowTags(cid, win.windowNumber, setTags, 32);
     CGSClearWindowTags(cid, win.windowNumber, clearTags, 32);
     
-    // 3. Center on the display where the user currently has their mouse cursor
-    NSPoint mouse = [NSEvent mouseLocation];
-    NSScreen *targetScreen = nil;
-    for (NSScreen *s in [NSScreen screens]) {
-        if (NSMouseInRect(mouse, s.frame, NO)) {
-            targetScreen = s;
-            break;
-        }
-    }
-    if (!targetScreen) targetScreen = [NSScreen mainScreen];
-    
-    BOOL isSearchPalette = [win.title hasPrefix:@"ardia.search"] || (![win.title length]) || [win.title hasSuffix:@"New Tab"];
-    
-    if (targetScreen) {
-        NSRect visible = targetScreen.visibleFrame;
-        NSSize sz = isSearchPalette ? NSMakeSize(680, 107) : NSMakeSize(900, 640);
-        CGFloat lift = isSearchPalette
-            ? MIN(visible.size.height * 0.16, (visible.size.height - sz.height) / 2.0)
-            : MIN(visible.size.height * 0.05, (visible.size.height - sz.height) / 2.0);
-        NSRect newFrame = NSMakeRect(
-            round(NSMidX(visible) - sz.width / 2.0),
-            round(NSMidY(visible) - sz.height / 2.0 + lift),
-            sz.width,
-            sz.height
-        );
-        [win setFrame:newFrame display:YES];
-    }
-    
     // 4. Explicitly bind window to the currently active managed space
     CFArrayRef displays = CGSCopyManagedDisplaySpaces(cid);
     if (displays) {
@@ -193,7 +159,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
     // 5. Title observation for dynamic suggestion sizing and smooth expansion to 900x640 on URL enter
     static const char *kTitleObsKey = "kTitleObsKey";
     if (!objc_getAssociatedObject(win, kTitleObsKey)) {
-        [win addObserver:[LittleArdiaObserver shared] forKeyPath:@"title" options:NSKeyValueObservingOptionNew context:NULL];
+        [win addObserver:[LittleArdiaObserver shared] forKeyPath:@"title" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:NULL];
         objc_setAssociatedObject(win, kTitleObsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
@@ -205,7 +171,7 @@ static void ConfigureLittleWindow(NSWindow *win) {
                                                                     queue:[NSOperationQueue mainQueue]
                                                                usingBlock:^(NSNotification *note) {
             NSWindow *w = (NSWindow *)note.object;
-            if ([w.title hasPrefix:@"ardia.search"] || [w.title hasSuffix:@"New Tab"] || w.frame.size.width < 800) {
+            if ([w.title hasPrefix:@"ardia.search"]) {
                 [w performClose:nil];
             }
         }];
