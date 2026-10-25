@@ -14,6 +14,7 @@ import {
   setMenuStateParts,
   setTrafficLightsCenter,
   setWindowTitle,
+  takeLaunchURLs,
   windowIds,
   type MenuBookmark,
   type MenuState,
@@ -81,6 +82,13 @@ export function startNativeSync() {
     initialSyncDone = true;
     openExternalUrls(urls, pointer);
   });
+  const launch = takeLaunchURLs();
+  if (launch && launch.urls.length > 0) {
+    cancelInitialWindow();
+    isColdExternalLaunch = true;
+    initialSyncDone = true;
+    openExternalUrls(launch.urls, launch.pointer);
+  }
   void lastTabClosesWindow().then((closes) => setLastTabKeepsWindow(!closes));
   onDownload((d) => store.getState().upsertDownload(d));
 

@@ -15,7 +15,7 @@ export function openLittleArdia(url?: string, profileId?: string, adoptId?: stri
   const s = store();
   const existingSmallId = s.windowOrder.find((id) => isSmallWindow(s.windows[id]));
   if (existingSmallId) {
-    if (url) {
+    if (url && !adoptId) {
       const tabId = activeTabId(s, existingSmallId);
       if (tabId) s.navigate(tabId, url);
       focus(existingSmallId);
@@ -23,10 +23,10 @@ export function openLittleArdia(url?: string, profileId?: string, adoptId?: stri
     }
     const tabId = activeTabId(s, existingSmallId);
     const tab = tabId ? s.tabs[tabId] : undefined;
-    if (tab?.url) {
+    if (tab?.url || adoptId) {
       s.closeWindow(existingSmallId);
-      const id = s.createWindow({ small: true, profileId, adoptId, linkPointer });
-      s.openPanel(id, "");
+      const id = s.createWindow({ small: true, url, profileId, adoptId, linkPointer });
+      if (!url) s.openPanel(id, "");
       focus(id);
       return id;
     } else {

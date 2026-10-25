@@ -23,7 +23,16 @@ static const NSTimeInterval kExpansionAnimationDuration = 0.18;
 
 static BOOL IsLittleWindow(NSWindow *w) {
     if (!w) return NO;
-    return [w.identifier isEqualToString:kSmallWindowIdentifier];
+    if ([w.identifier isEqualToString:kSmallWindowIdentifier]) return YES;
+    id controller = [w windowController];
+    if (controller && [controller respondsToSelector:@selector(appWindowId)]) {
+        NSString *appWinId = [controller performSelector:@selector(appWindowId)];
+        if ([appWinId isEqualToString:@"ardia.early.little-ardia"]) {
+            w.identifier = kSmallWindowIdentifier;
+            return YES;
+        }
+    }
+    return NO;
 }
 
 static void TriggerNewLittleArdia(void) {
