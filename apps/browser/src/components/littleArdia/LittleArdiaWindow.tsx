@@ -1,5 +1,5 @@
 import { WindowBackdrop } from "@ardia/shaders";
-import { ContextMenuArea, setTrafficLightsCenter, WindowDragRegion } from "@ardia/shell";
+import { ContextMenuArea, setTrafficLightsCenter, setWindowTitle, WindowDragRegion } from "@ardia/shell";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../lib/theme";
@@ -15,23 +15,78 @@ import { useHover } from "../primitives";
 import { copyPageUrl } from "../site/selection";
 import { ProfileBadge } from "../profiles/icons";
 import { openInMainWindow, openLittleArdiaProfileMenu } from "./actions";
-import { PageLabel, SMALL_BAR_HEIGHT, SMALL_INSET, SmallBar, SmallBarBadgeButton } from "./SmallChrome";
+import {
+  LITTLE_ARDIA_INITIAL_TITLE,
+  LITTLE_ARDIA_SEARCH_PREFIX,
+  PageLabel,
+  SMALL_BAR_HEIGHT,
+  SMALL_INSET,
+  SmallBar,
+  SmallBarBadgeButton,
+} from "./SmallChrome";
 
 const LIGHTS_CENTER: [number, number] = [20, SMALL_BAR_HEIGHT / 2];
+const HIDDEN_LIGHTS_CENTER: [number, number] = [-200, -200];
 const FIELD_LEFT = 84;
 
 export function LittleArdiaWindow() {
+  const windowId = useWindowId();
   const theme = useTheme();
   const [width, setWidth] = useState(0);
+  const tab = useActiveTab();
+  const isBlank = !tab?.url;
+  const panelOpen = useWindowUi().panel.open;
+  const wasOpened = useRef(panelOpen);
+
+  useEffect(() => {
+    if (panelOpen) wasOpened.current = true;
+  }, [panelOpen]);
+
+  useEffect(() => {
+    if (isBlank && wasOpened.current && !panelOpen) {
+      useBrowser.getState().closeWindow(windowId);
+    }
+  }, [isBlank, panelOpen, windowId]);
+
+  useEffect(() => {
+    if (isBlank) {
+      void setTrafficLightsCenter(windowId, HIDDEN_LIGHTS_CENTER);
+      void setWindowTitle(windowId, LITTLE_ARDIA_INITIAL_TITLE);
+    } else {
+      void setTrafficLightsCenter(windowId, LIGHTS_CENTER);
+      const rawTitle = tab?.title || tab?.url || "Ardia";
+      const safeTitle = rawTitle.startsWith(LITTLE_ARDIA_SEARCH_PREFIX) ? ` ${rawTitle}` : rawTitle;
+      void setWindowTitle(windowId, safeTitle);
+    }
+  }, [windowId, isBlank, tab?.title, tab?.url]);
+
   return (
-    <View style={{ flex: 1 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
-      <View style={{ flex: 1, flexDirection: "row", paddingTop: SMALL_BAR_HEIGHT, paddingLeft: SMALL_INSET, paddingRight: SMALL_INSET, paddingBottom: SMALL_INSET }}>
-        <ContentCard />
-      </View>
-      <View style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
-        <LittleArdiaBar />
-      </View>
+    <View style={{ flex: 1, backgroundColor: "transparent" }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {isBlank ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => useBrowser.getState().closeWindow(windowId)}
+        />
+      ) : (
+        <>
+          <WindowBackdrop vibrancy {...theme.backdrop} colors={theme.windowTint} grainOpacity={theme.grain} style={StyleSheet.absoluteFill} />
+          <View
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              paddingTop: SMALL_BAR_HEIGHT,
+              paddingLeft: SMALL_INSET,
+              paddingRight: SMALL_INSET,
+              paddingBottom: SMALL_INSET,
+            }}
+          >
+            <ContentCard />
+          </View>
+          <View style={{ position: "absolute", left: 0, right: 0, top: 0 }}>
+            <LittleArdiaBar />
+          </View>
+        </>
+      )}
       <CommandPanel windowWidth={width} />
       <DownloadsPopover />
     </View>

@@ -306,6 +306,17 @@ public class ShellModule: Module {
       }
     }
 
+    Function("takeLaunchURLs") -> [String: Any]? {
+      let extract: () -> [String: Any]? = {
+        guard !OpenURLInbox.pending.isEmpty else { return nil }
+        let urls = OpenURLInbox.pending
+        let pointer = OpenURLInbox.pendingPointer != .zero ? OpenURLInbox.pendingPointer : NSEvent.mouseLocation
+        OpenURLInbox.pending = []
+        return ["urls": urls, "pointer": [pointer.x, pointer.y]]
+      }
+      return Thread.isMainThread ? extract() : DispatchQueue.main.sync(execute: extract)
+    }
+
     AsyncFunction("openWindow") { (id: String, options: [String: Any]) in
       WindowManager.shared.open(
         id: id,

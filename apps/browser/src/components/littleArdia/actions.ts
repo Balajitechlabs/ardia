@@ -1,18 +1,43 @@
 import { type LinkRoute, routeLinkTabs } from "@ardia/ardiacore";
 import { showMenu } from "@ardia/shell";
 import { focus, openWindow } from "../../lib/actions";
+import { endColdExternalLaunch } from "../../lib/native";
 import { routedLinks, type RoutedLinks } from "../../lib/linkRoutes";
 import { runsJavaScript } from "../../lib/scriptUrls";
 import { profileAccent } from "../../lib/theme";
 import { useBrowser } from "../../store/browser";
 import { activeTabId } from "../../store/model";
-import { isSmall, lastActiveProfile, mainWindowFor } from "../../store/small";
+import { isSmall, isSmallWindow, lastActiveProfile, mainWindowFor } from "../../store/small";
 
 const store = () => useBrowser.getState();
 
 export function openLittleArdia(url?: string, profileId?: string, adoptId?: string, linkPointer?: [number, number]): string {
-  const id = store().createWindow({ small: true, url, profileId, adoptId, linkPointer });
-  if (!url) store().openPanel(id, "");
+  const s = store();
+  const existingSmallId = s.windowOrder.find((id) => isSmallWindow(s.windows[id]));
+  if (existingSmallId) {
+    if (url && !adoptId) {
+      const tabId = activeTabId(s, existingSmallId);
+      if (tabId) s.navigate(tabId, url);
+      focus(existingSmallId);
+      return existingSmallId;
+    }
+    const tabId = activeTabId(s, existingSmallId);
+    const tab = tabId ? s.tabs[tabId] : undefined;
+    if (tab?.url || adoptId) {
+      s.closeWindow(existingSmallId);
+      const id = s.createWindow({ small: true, url, profileId, adoptId, linkPointer });
+      if (!url) s.openPanel(id, "");
+      focus(id);
+      return id;
+    } else {
+      s.openPanel(existingSmallId, "");
+      focus(existingSmallId);
+      return existingSmallId;
+    }
+  }
+  const id = s.createWindow({ small: true, url, profileId, adoptId, linkPointer });
+  if (!url) s.openPanel(id, "");
+  focus(id);
   return id;
 }
 
@@ -43,11 +68,24 @@ function openRoutedUrls(urls: string[], route: LinkRoute, pointer?: [number, num
 function openUrlsFromApps(urls: string[], routed: RoutedLinks, pointer?: [number, number]) {
   const [url] = urls;
   const profileId = routed.profileId ?? lastActiveProfile(store());
-  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) return void openLittleArdia(url, profileId, routed.adoptIds[0], pointer);
+  if (store().settings.openLinksInLittleArdia && urls.length === 1 && url && opensInLittleArdia(url)) {
+    const s = store();
+    for (const id of s.windowOrder) {
+      const w = s.windows[id];
+      if (w && !isSmallWindow(w)) {
+        const blank = w.tabIds.length === 1 ? s.tabs[w.tabIds[0]!] : undefined;
+        if (blank && !blank.url && !blank.navigation) {
+          s.closeWindow(id);
+        }
+      }
+    }
+    return void openLittleArdia(url, profileId, routed.adoptIds[0], pointer);
+  }
   openLinksInMainWindow(urls, profileId, routed.adoptIds);
 }
 
 function openLinksInMainWindow(urls: string[], profileId: string, adoptIds: (string | undefined)[]) {
+  endColdExternalLaunch();
   let target = mainWindowFor(store(), profileId);
   urls.forEach((url, i) => {
     const s = store();
@@ -66,6 +104,7 @@ function openLinksInMainWindow(urls: string[], profileId: string, adoptIds: (str
 }
 
 export function openInMainWindow(windowId: string) {
+  endColdExternalLaunch();
   const s = store();
   if (!isSmall(s, windowId)) return;
   const tabId = activeTabId(s, windowId);

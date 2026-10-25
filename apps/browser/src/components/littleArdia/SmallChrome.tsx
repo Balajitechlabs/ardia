@@ -12,6 +12,11 @@ import { Favicon, IconButton, useHover } from "../primitives";
 export const SMALL_BAR_HEIGHT = 38;
 export const SMALL_INSET = 6;
 export const SMALL_WINDOW_RADIUS = 16;
+export const LITTLE_ARDIA_SEARCH_WIDTH = 680;
+export const LITTLE_ARDIA_SEARCH_HEIGHT = 107;
+export const LITTLE_ARDIA_FULL_SIZE: [number, number] = [900, 640];
+export const LITTLE_ARDIA_SEARCH_PREFIX = "ardia.search:";
+export const LITTLE_ARDIA_INITIAL_TITLE = `${LITTLE_ARDIA_SEARCH_PREFIX}${LITTLE_ARDIA_SEARCH_HEIGHT}`;
 export const SMALL_WINDOW_FRAME = {
   dark: { outerRim: "rgba(0,0,0,0.95)", innerRim: "rgba(255,255,255,0.1)", shadowOpacity: 0.66, shadowRadius: 23, shadowOffset: [0, 21] as [number, number] },
   light: { outerRim: "rgba(0,0,0,0.15)", innerRim: "rgba(255,255,255,0)", shadowOpacity: 0.38, shadowRadius: 23, shadowOffset: [0, 21] as [number, number] },

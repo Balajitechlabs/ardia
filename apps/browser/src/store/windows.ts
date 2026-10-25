@@ -207,6 +207,8 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
       if (!w || (w.frame && w.frame.every((v, i) => v === frame[i]))) return {};
       const windows = { ...s.windows, [id]: { ...w, frame } };
       if (!isSmallWindow(w)) return { windows };
+      const tab = s.tabs[w.tabIds[0] ?? ""];
+      if (!tab?.url) return { windows };
       const size: [number, number] = [Math.round(frame[2]), Math.round(frame[3])];
       const [width, height] = s.settings.littleArdiaSize ?? [];
       return size[0] === width && size[1] === height ? { windows } : { windows, settings: { ...s.settings, littleArdiaSize: size } };

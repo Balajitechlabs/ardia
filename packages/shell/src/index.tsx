@@ -259,6 +259,7 @@ const Shell = requireNativeModule<{
   replyToTerminate(ok: boolean): Promise<void>;
   confirm(options: ConfirmOptions): Promise<{ confirmed: boolean; suppressed: boolean }>;
   prompt(options: PromptOptions): Promise<string | null>;
+  takeLaunchURLs?(): { urls: string[]; pointer?: [number, number] } | null;
 }>("ArdiaShell");
 
 export const readDocument = (name: string) => Shell.readDocument(name);
@@ -351,6 +352,7 @@ export const onWindowEvent = (listener: (e: WindowEvent) => void) => Shell.addLi
 export const onAppEvent = (listener: (e: AppEvent) => void) => Shell.addListener("onAppEvent", listener);
 export const onOpenURLs = (listener: (urls: string[], pointer?: [number, number]) => void) =>
   Shell.addListener("onOpenURLs", ({ urls, pointer }) => listener(urls, pointer));
+export const takeLaunchURLs = (): { urls: string[]; pointer?: [number, number] } | null => Shell.takeLaunchURLs?.() ?? null;
 
 export const WindowDragRegion = requireNativeViewManager<ViewProps & { titleBarDoubleClick?: boolean; onRegionDoubleClick?: () => void }>("ArdiaShell");
 

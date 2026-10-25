@@ -1221,6 +1221,11 @@ CGImageRef TakePrefetched(NSString *windowId) {
     return NO;
   }
   controller.appWindowId = windowId;
+  if ([windowId isEqualToString:kLittleWindow]) {
+    window.identifier = @"ardia.window.small";
+    window.collectionBehavior = NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorFullScreenAuxiliary;
+    window.level = NSFloatingWindowLevel;
+  }
   [window setFrame:rect display:NO];
   if (NSScreen *screen = window.screen ?: NSScreen.mainScreen) [window setFrame:[window constrainFrameRect:window.frame toScreen:screen] display:NO];
   if ([layout[@"appearance"] isKindOfClass:NSString.class]) window.appearance = [NSAppearance appearanceNamed:layout[@"appearance"]];

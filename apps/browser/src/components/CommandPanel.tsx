@@ -1,4 +1,4 @@
-import { OutsidePressArea, Surface } from "@ardia/shell";
+import { OutsidePressArea, Surface, setWindowTitle } from "@ardia/shell";
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Easing, View, type LayoutChangeEvent } from "react-native";
 import { hex, useTheme } from "../lib/theme";
@@ -12,6 +12,8 @@ import { commandBarCentred, useCardAnchors, useUrlAnchors } from "./layout/windo
 import { barWidth } from "./NewTabPage";
 import { closeNewTabBar } from "./omnibox/newTabBar";
 import type { NewTabTarget } from "../store/types";
+import { isSmallWindow } from "../store/small";
+import { LITTLE_ARDIA_SEARCH_PREFIX, LITTLE_ARDIA_SEARCH_WIDTH } from "./littleArdia/SmallChrome";
 import { Omnibox, PANEL_TEXT_LEFT } from "./Omnibox";
 import { closePanelToHeroBar, type BarDismissal } from "./omnibox/barState";
 import { insecureLevel, URL_FIELD, urlTextLeft } from "./Toolbar";
@@ -47,9 +49,15 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   const hasField = useStoreWhile(useBrowser, panel.open, (s) => !!(activeId && s.tabs[activeId]?.url));
   const insecure = usePage(activeId, (p) => !!insecureLevel(p));
   const anchor = useUrlAnchors((s) => (panel.open ? s[windowId] : undefined));
+  const isSmallBlank = useBrowser((s) => {
+    const w = s.windows[windowId];
+    if (!isSmallWindow(w)) return false;
+    const tab = activeId ? s.tabs[activeId] : undefined;
+    return !tab?.url;
+  });
   const centred = useBrowser((s) => panel.open && !panel.newTab && commandBarCentred(s, windowId));
   const card = useCardAnchors((s) => (panel.newTab || centred ? s[windowId] : undefined));
-  const overRows = panel.open && !panel.newTab && !centred && !!anchor?.sidebar;
+  const overRows = panel.open && !panel.newTab && !centred && !isSmallBlank && !!anchor?.sidebar;
   useEffect(() => {
     if (panel.open) dismissHover();
     setRowsCovered(windowId, overRows);
@@ -58,13 +66,52 @@ export function CommandPanel({ windowWidth }: { windowWidth: number }) {
   if (panel.newTab) return card ? <CentredBar windowId={windowId} tabId={activeId} target={panel.newTab} card={card} /> : null;
 
   const room = (left: number, fallback: number) => (windowWidth > 0 ? windowWidth - left - WINDOW_MARGIN : fallback);
-  const onCancel = () => useBrowser.getState().closePanel(windowId);
-  const onDone = (reason?: BarDismissal) => closePanelToHeroBar(windowId, activeId, reason);
+  const onCancel = () => {
+    const s = useBrowser.getState();
+    const w = s.windows[windowId];
+    if (!w) return;
+    const tab = activeId ? s.tabs[activeId] : undefined;
+    if (isSmallWindow(w) && !tab?.url) {
+      s.closeWindow(windowId);
+    } else {
+      s.closePanel(windowId);
+    }
+  };
+  const onDone = (reason?: BarDismissal) => {
+    const s = useBrowser.getState();
+    const w = s.windows[windowId];
+    if (!w) return;
+    const tab = activeId ? s.tabs[activeId] : undefined;
+    if (reason === "escape" && isSmallWindow(w) && !tab?.url) {
+      return s.closeWindow(windowId);
+    }
+    closePanelToHeroBar(windowId, activeId, reason);
+  };
   const surface = (radius: number) => panelSurface(theme, radius);
+
+  if (isSmallBlank) {
+    const effectiveWidth = windowWidth > 0 ? windowWidth : LITTLE_ARDIA_SEARCH_WIDTH;
+    return (
+      <View
+        style={{ width: effectiveWidth, alignSelf: "center" }}
+        onLayout={(e) => {
+          const h = Math.round(e.nativeEvent.layout.height);
+          if (h > 0) void setWindowTitle(windowId, `${LITTLE_ARDIA_SEARCH_PREFIX}${h}`);
+        }}
+      >
+        <Surface {...surface(PANEL_RADIUS)} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+        <View style={{ overflow: "hidden", borderRadius: PANEL_RADIUS }}>
+          <OutsidePressArea onOutsidePress={onCancel}>
+            <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={undefined} onDone={onDone} />
+          </OutsidePressArea>
+        </View>
+      </View>
+    );
+  }
 
   if (centred && card) {
     return (
-      <Grow from={null} frame={centredFrame(card)} openHeight={PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
+      <Grow from={null} frame={centredFrame(card!)} openHeight={PANEL_OPEN_HEIGHT} radius={PANEL_RADIUS} surface={surface(PANEL_RADIUS)}>
         <OutsidePressArea onOutsidePress={onCancel}>
           <Omnibox key={activeId} variant="panel" tabId={activeId} initialText={panel.initialText} onCancel={onCancel} onDone={onDone} />
         </OutsidePressArea>
@@ -123,7 +170,16 @@ function centredFrame(card: Box) {
 
 function CentredBar({ windowId, tabId, target, card }: { windowId: string; tabId: string; target: NewTabTarget; card: Box }) {
   const theme = useTheme();
-  const onCancel = () => useBrowser.getState().closePanel(windowId);
+  const onCancel = () => {
+    const s = useBrowser.getState();
+    const w = s.windows[windowId];
+    const tab = tabId ? s.tabs[tabId] : undefined;
+    if (w?.kind === "small" && !tab?.url) {
+      s.closeWindow(windowId);
+    } else {
+      s.closePanel(windowId);
+    }
+  };
   const onDone = () => closeNewTabBar(windowId);
   return (
     <Grow

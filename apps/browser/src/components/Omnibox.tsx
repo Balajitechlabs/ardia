@@ -221,8 +221,8 @@ export function Omnibox({
         setPendingSelection({ start: 0, end: s.value.length });
         return;
       case "action":
-        dismiss();
-        return runBarAction(s.id, windowId);
+        runBarAction(s.id, windowId);
+        return dismiss();
     }
   };
 
@@ -264,7 +264,12 @@ export function Omnibox({
     const { key, metaKey, altKey, shiftKey, ctrlKey } = e.nativeEvent;
     bangEnter.cancel();
     if (key === "Escape") {
-      if (scope) return leaveScope(null);
+      if (scope) {
+        leaveScope(null);
+        reset();
+        return;
+      }
+      if (edited && typed.length > 0) return reset();
       if (!hero) return onDone?.("escape");
       if (shownCompletion) return setSuppressCompletion(true);
       return reset();

@@ -14,6 +14,7 @@ import {
   setMenuStateParts,
   setTrafficLightsCenter,
   setWindowTitle,
+  takeLaunchURLs,
   windowIds,
   type MenuBookmark,
   type MenuState,
@@ -33,6 +34,8 @@ import { isInternalTab } from "../components/pages/urls";
 import { sidebarMenuState } from "../components/sidebar/commands";
 import { openWindow as createWindow } from "./actions";
 import { windowOpens } from "./windowOpenOrder";
+import { isSmallWindow } from "../store/small";
+import { LITTLE_ARDIA_INITIAL_TITLE, LITTLE_ARDIA_SEARCH_HEIGHT, LITTLE_ARDIA_SEARCH_WIDTH } from "../components/littleArdia/SmallChrome";
 import { openExternalUrls } from "../components/littleArdia/actions";
 import { LITTLE_ARDIA_DISABLED_COMMANDS } from "../components/littleArdia/menu";
 import { runCommand } from "./commands";
@@ -46,16 +49,46 @@ import { extensionMenu, useExtensions } from "../components/extensions/state";
 let quitting = false;
 export const isQuitting = () => quitting;
 
+let initialWindowTimer: ReturnType<typeof setTimeout> | null = null;
+let isColdExternalLaunch = false;
+export const endColdExternalLaunch = () => {
+  isColdExternalLaunch = false;
+};
+let initialSyncDone = false;
+
+export function cancelInitialWindow() {
+  if (initialWindowTimer) {
+    clearTimeout(initialWindowTimer);
+    initialWindowTimer = null;
+  }
+}
+
 export function startNativeSync() {
   const store = useBrowser;
-  if (!store.getState().windowOrder.length) store.getState().createWindow();
 
   setFocusSenders(claimFocus, cancelFocusMove);
   cancelAbandonedFocusMoves();
-  onCommand((e) => settlingCommandFocus(e, runCommand));
+  onCommand((e) => {
+    if (e.command === "newWindow" || e.command === "newIncognitoWindow" || e.command === "newLittleArdia") {
+      cancelInitialWindow();
+    }
+    settlingCommandFocus(e, runCommand);
+  });
   startWindowCloseGuard();
   startExtensionsBridge();
-  onOpenURLs((urls, pointer) => openExternalUrls(urls, pointer));
+  onOpenURLs((urls, pointer) => {
+    cancelInitialWindow();
+    if (!initialSyncDone) isColdExternalLaunch = true;
+    initialSyncDone = true;
+    openExternalUrls(urls, pointer);
+  });
+  const launch = takeLaunchURLs();
+  if (launch && launch.urls.length > 0) {
+    cancelInitialWindow();
+    isColdExternalLaunch = true;
+    initialSyncDone = true;
+    openExternalUrls(launch.urls, launch.pointer);
+  }
   void lastTabClosesWindow().then((closes) => setLastTabKeepsWindow(!closes));
   onDownload((d) => store.getState().upsertDownload(d));
 
@@ -66,7 +99,15 @@ export function startNativeSync() {
   onAppEvent((e) => {
     const s = store.getState();
     if (e.type === "appearance") s.setAppDark(e.dark);
-    if (e.type === "reopen") createWindow();
+    if (e.type === "reopen") {
+      isColdExternalLaunch = false;
+      const closedMain = s.windowOrder.filter((id) => !open.has(id) && !isSmallWindow(s.windows[id]));
+      if (closedMain.length) {
+        syncWindows(s);
+      } else if (!open.size) {
+        s.createWindow();
+      }
+    }
     if (e.type === "quitWarningSuppressed") s.updateSettings({ warnBeforeQuitting: false });
     if (e.type === "willQuit") {
       quitting = true;
@@ -100,19 +141,32 @@ export function startNativeSync() {
   };
 
   const syncWindows = (s: BrowserState, prev?: BrowserState) => {
-    const opens = windowOpens(s, s.windowOrder.filter((id) => !open.has(id)), !prev);
+    const pendingIds = s.windowOrder.filter((id) => !open.has(id));
+    const toOpenIds = isColdExternalLaunch
+      ? pendingIds.filter((id) => isSmallWindow(s.windows[id]))
+      : pendingIds;
+    const opens = windowOpens(s, toOpenIds, !prev);
+    if (opens.length > 0) cancelInitialWindow();
     for (const { id, focus, behind } of opens) {
       const w = s.windows[id]!;
       open.add(id);
-      titles.set(id, windowTitle(s, id));
+      const isSmall = isSmallWindow(w);
+      const isBlankSmall = isSmall && !s.tabs[w.tabIds[0] ?? ""]?.url;
+      const initialTitle = isBlankSmall ? LITTLE_ARDIA_INITIAL_TITLE : windowTitle(s, id);
+      titles.set(id, initialTitle);
       const profile = engineProfile(w.profileId);
-      const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
-      const small = w.kind === "small"
-        ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}), ...(w.linkPointer ? { pointer: w.linkPointer } : {}) }
+      const claim = isSmall ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
+      const small = isSmall
+        ? {
+            kind: "small" as const,
+            size: isBlankSmall ? [LITTLE_ARDIA_SEARCH_WIDTH, LITTLE_ARDIA_SEARCH_HEIGHT] : s.settings.littleArdiaSize,
+            ...(claim?.startsWith("link:") ? { claim } : {}),
+            ...(w.linkPointer ? { pointer: w.linkPointer } : {})
+          }
         : {};
       const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
-      if (w.kind !== "small") void setTrafficLightsCenter(id, openingLightsCenter(s, id));
-      void openWindow(id, { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
+      if (!isSmall) void setTrafficLightsCenter(id, openingLightsCenter(s, id));
+      void openWindow(id, { frame: isBlankSmall ? undefined : w.frame, incognito: w.incognito, title: initialTitle, focus, profile, ...(behind ? { behind } : {}), ...small, ...made });
     }
     for (const id of [...open]) {
       if (s.windows[id]) continue;
@@ -124,6 +178,9 @@ export function startNativeSync() {
     }
     if (prev && s.tabs === prev.tabs && s.windows === prev.windows && s.profiles === prev.profiles) return;
     for (const id of open) {
+      const w = s.windows[id];
+      const isBlankSmall = isSmallWindow(w) && !s.tabs[w?.tabIds[0] ?? ""]?.url;
+      if (isBlankSmall) continue;
       const title = windowTitle(s, id);
       if (titles.get(id) !== title) {
         titles.set(id, title);
@@ -148,7 +205,18 @@ export function startNativeSync() {
     void setMenuStateParts(state, bookmarksChanged);
   };
 
-  syncWindows(store.getState());
+  initialWindowTimer = setTimeout(() => {
+    initialWindowTimer = null;
+    if (!initialSyncDone) {
+      initialSyncDone = true;
+      const s = store.getState();
+      if (!isColdExternalLaunch && !s.windowOrder.length) {
+        s.createWindow();
+      }
+      syncWindows(store.getState());
+    }
+  }, 400);
+
   syncMenu();
   store.subscribe((s, prev) => {
     syncWindows(s, prev);

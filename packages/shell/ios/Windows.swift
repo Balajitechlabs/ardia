@@ -5,6 +5,11 @@ public enum WindowHost {
   public static var makeContentView: ((_ windowId: String) -> NSView)?
 }
 
+private let smallWindowIdentifier = NSUserInterfaceItemIdentifier("ardia.window.small")
+private let defaultSmallWidth: Double = 900
+private let defaultSmallHeight: Double = 640
+private let searchTitlePrefix = "ardia.search"
+
 final class WindowManager: NSObject, NSWindowDelegate {
   static let shared = WindowManager()
 
@@ -347,20 +352,27 @@ final class WindowManager: NSObject, NSWindowDelegate {
   }
 
   private func configureSmall(_ window: NSWindow) {
-    window.identifier = NSUserInterfaceItemIdentifier("ardia.window.small")
-    window.minSize = NSSize(width: 420, height: 300)
+    window.identifier = smallWindowIdentifier
+    window.minSize = NSSize(width: 350, height: 50)
     window.tabbingMode = .disallowed
-    window.collectionBehavior.insert(.moveToActiveSpace)
+    window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+    window.level = .floating
+    window.isOpaque = false
+    window.backgroundColor = .clear
+    window.hasShadow = true
   }
 
   private func placeSmall(_ window: NSWindow, size: [Double], pointer: NSPoint?) {
-    let mouse = pointer ?? NSEvent.mouseLocation
-    let screen = (pointer == nil && NSApp.isActive ? NSApp.keyWindow?.screen : nil)
-      ?? NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+    let mouse = (pointer != nil && pointer != .zero) ? pointer! : NSEvent.mouseLocation
+    let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+      ?? (NSApp.isActive ? NSApp.keyWindow?.screen : nil) ?? NSScreen.main
     guard let visible = screen?.visibleFrame else { return window.center() }
-    let width = min(max(size.count == 2 ? size[0] : 900, window.minSize.width), visible.width)
-    let height = min(max(size.count == 2 ? size[1] : 640, window.minSize.height), visible.height)
-    let lift = min(visible.height * 0.05, (visible.height - height) / 2)
+    let width = min(max(size.count == 2 ? size[0] : defaultSmallWidth, window.minSize.width), visible.width)
+    let height = min(max(size.count == 2 ? size[1] : defaultSmallHeight, window.minSize.height), visible.height)
+    let isSearch = height < 200 || window.title.hasPrefix(searchTitlePrefix)
+    let lift = isSearch
+      ? min(visible.height * 0.16, (visible.height - height) / 2)
+      : min(visible.height * 0.05, (visible.height - height) / 2)
     let origin = NSPoint(x: (visible.midX - width / 2).rounded(), y: (visible.midY - height / 2 + lift).rounded())
     window.setFrame(NSRect(origin: origin, size: NSSize(width: width.rounded(), height: height.rounded())), display: false)
   }
@@ -417,7 +429,11 @@ final class WindowManager: NSObject, NSWindowDelegate {
         id: id, frame: o.frame, incognito: o.incognito, title: o.title, focus: true, kind: o.kind, profile: o.profile, size: o.size,
         pointer: o.pointer)
     }
-    windows[id]?.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+    if let window = windows[id] {
+      if window.isMiniaturized { window.deminiaturize(nil) }
+      window.makeKeyAndOrderFront(nil)
+    }
   }
 
   func setTitle(id: String, title: String) {
